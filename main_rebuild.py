@@ -1,8 +1,6 @@
 import time
 import argparse
 import os
-from os import times_result
-
 os.environ['CUDA_VISIBLE_DEVICES'] = '2, 3'
 from datetime import datetime
 from pathlib import Path
@@ -28,19 +26,21 @@ def prepare_to_train(mri_dir, pet_dir, cli_dir, csv_file, batch_size, model_inde
     torch.cuda.empty_cache()
 
     # 初始化数据集
-    if model_index == 'IMF':
-        dataset = MriPetDatasetWithTowLabel(mri_dir, pet_dir, cli_dir, csv_file, valid_group=("pMCI", "sMCI"))
-    elif model_index == 'MDL':
-        dataset = MriPetDatasetWithTwoInput(mri_dir, pet_dir, csv_file, valid_group=("pMCI", "sMCI"))
-    else:
-        dataset = MriPetDataset(mri_dir, pet_dir, cli_dir, csv_file, valid_group=("pMCI", "sMCI"))
-
+    # if model_index == 'IMF':
+    #     dataset = MriPetDatasetWithTowLabel(mri_dir, pet_dir, cli_dir, csv_file, valid_group=("pMCI", "sMCI"))
+    # elif model_index == 'MDL':
+    #     dataset = MriPetDatasetWithTwoInput(mri_dir, pet_dir, csv_file, valid_group=("pMCI", "sMCI"))
+    # else:
+    #     dataset = MriPetDataset(mri_dir, pet_dir, cli_dir, csv_file, valid_group=("pMCI", "sMCI"))
+    dataset = experiment_settings['dataset'](mri_dir, pet_dir, cli_dir, csv_file,
+                                             resize_shape=experiment_settings['shape'],
+                                             valid_group=("pMCI", "sMCI"))
     torch.manual_seed(seed)
 
     # K折交叉验证
     # kf = KFold(n_splits=n_splits, shuffle=True, random_state=seed)
     skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=seed)
-    labels = [data[2] for data in dataset]  # 假设dataset[i]的第3项是label
+    labels = [data[1] for data in dataset]  # 假设dataset[i]的第3项是label
     # 存储每个fold的评估指标
     metrics = {
         'accuracy': [],
@@ -74,7 +74,7 @@ def prepare_to_train(mri_dir, pet_dir, cli_dir, csv_file, batch_size, model_inde
         target_dir = Path('./checkpoints/')
         target_dir.mkdir(exist_ok=True)
         current_time = str(datetime.now().strftime('%Y-%m-%d_%H-%M'))
-        target_dir = target_dir.joinpath(experiment_settings['Name'] + f'_{current_time}_fold_{fold + 1}')
+        target_dir = target_dir.joinpath(experiment_settings['Name'] + f'_{current_time}_fold_{fold}')
         target_dir.mkdir(exist_ok=True)
 
         observer = Runtime_Observer(log_dir=target_dir, device=device, name=experiment_settings['Name'], seed=seed)
@@ -84,6 +84,8 @@ def prepare_to_train(mri_dir, pet_dir, cli_dir, csv_file, batch_size, model_inde
         _model = experiment_settings['Model']
         if model_index == 'MDL':
             model = _model(model_depth=18, in_planes=1, num_classes=2)
+        elif model_index == 'RLAD':
+            _, model = _model()
         else:
             print(f"The name of model will run {_model}")
             model = _model()
@@ -99,14 +101,20 @@ def prepare_to_train(mri_dir, pet_dir, cli_dir, csv_file, batch_size, model_inde
         observer.log("\n===============================================\n")
 
         # 超参数设置
-        # optimizer = experiment_settings['Optimizer'](model.parameters(), experiment_settings['Lr'])
+        optimizer = experiment_settings['Optimizer'](model.parameters(), experiment_settings['Lr'])
         # 定义一个filter，只传入requires_grad=True的模型参数
         # optimizer = experiment_settings['Optimizer'](filter(lambda p: p.requires_grad, model.parameters()),
         #                                              experiment_settings['Lr'])
 
-        optimizer = experiment_settings['Optimizer'](model.parameters(), lr=experiment_settings['Lr'],
-                                                     weight_decay=experiment_settings['weight_decay'],
-                                                     momentum=experiment_settings['momentum'])
+        # MDL
+        # optimizer = experiment_settings['Optimizer'](model.parameters(), lr=experiment_settings['Lr'],
+        #                                              weight_decay=experiment_settings['weight_decay'],
+        #                                              momentum=experiment_settings['momentum'])
+
+        # RLAD
+        # optimizer = experiment_settings['Optimizer'](model.parameters(), experiment_settings['Lr'],
+        #                                              weight_decay=experiment_settings['weight_decay'])
+
         scheduler = experiment_settings['Scheduler'](optimizer, others_params)
 
 
@@ -145,20 +153,39 @@ if __name__ == "__main__":
     args = parse_args()
     print(args)
     # compute the flops and params
+
+    # IMF
     mri_demo = torch.ones(1, 1, 96, 128, 96)
     pet_demo = torch.ones(1, 1, 96, 128, 96)
     cli_demo = torch.ones(1, 9)
-    inputs = torch.cat([mri_demo, pet_demo], dim=1)
-    print("inputs", inputs.shape)
-    model_demo = models[args.model]['Model'](model_depth=18, in_planes=1, num_classes=2)
-    flops, params = profile(model_demo, inputs=(inputs, ), verbose=False)
-    # flops, params = profile(models[args.model]['Model'], inputs=(mri_demo, pet_demo, cli_demo), verbose=False)
 
+    model_demo = models[args.model]['Model']()
+    flops, params = profile(model_demo, inputs=(mri_demo, pet_demo, cli_demo,), verbose=False)
     flops, params = clever_format([flops, params], "%.3f")
     params_result = f'flops: {flops}, params: {params}'
+
+    # MDL
+    # mri_demo = torch.ones(1, 1, 128, 128, 128)
+    # pet_demo = torch.ones(1, 1, 128, 128, 128)
+    # cli_demo = torch.ones(1, 9)
+    # inputs = torch.cat([mri_demo, pet_demo], dim=1)
+    # print("inputs", inputs.shape)
+    # model_demo = models[args.model]['Model'](model_depth=18, in_planes=1, num_classes=2)
+    # flops, params = profile(model_demo, inputs=(inputs, ), verbose=False)
+    # flops, params = clever_format([flops, params], "%.3f")
+    # params_result = f'flops: {flops}, params: {params}'
+
+    # RLAD
+    # mri_demo = torch.ones(1, 1, 128, 128, 128)
+    # _, model_demo = models[args.model]['Model']()
+    # flops, params = profile(model_demo, inputs=(mri_demo, ), verbose=False)
+    # flops, params = clever_format([flops, params], "%.3f")
+    # params_result = f'flops: {flops}, params: {params}'
+
     print(params_result)
     with open(args.logs, 'w') as f:
         f.write(params_result + '\n')
+
     time_start = time.time()
     best_metrics = prepare_to_train(mri_dir=args.mri_dir, pet_dir=args.pet_dir, cli_dir=args.cli_dir,
                                     csv_file=args.csv_file, batch_size=args.batch_size, model_index=args.model,

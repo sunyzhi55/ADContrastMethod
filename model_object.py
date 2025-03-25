@@ -2,9 +2,11 @@ from torch.nn import CrossEntropyLoss
 from torch.optim import *
 from Net.TripleNetwork import *
 from MDL_Net.MDL_Net import generate_model, MDL_Net
+from RLAD_Net.taad import get_model
 from Net.api import *
 from loss_function import joint_loss, loss_in_IMF
 from utils import get_scheduler
+from Dataset import MriPetDataset, MriPetDatasetWithTowLabel, MriPetDatasetWithTwoInput, MriDataset
 
 models = {
 'ITCFN':{
@@ -63,13 +65,18 @@ models = {
         'Epoch': 200,
         # 'Dataset_mode': 'fusion',
         'Model': HFBSurv,
+        'dataset': MriPetDataset,
+        'shape': (96, 128, 96),
         'Optimizer': Adam,
         'Loss': CrossEntropyLoss,
-        'Run': run_main
+        'Scheduler': get_scheduler,
+        'Run': run_main,
     },
 'IMF':{
         'Name': 'Interactive Multimodal Fusion Model',
         'Model': Interactive_Multimodal_Fusion_Model,
+        'dataset': MriPetDatasetWithTowLabel,
+        'shape': (96, 128, 96),
         'Loss': loss_in_IMF,
         'Optimizer': Adam,
         'batch_size': 8,
@@ -77,12 +84,15 @@ models = {
         'Epoch': 200,
         'w1': 0.2,
         'w2': 0.01,
-        'Run': run_main_for_IMF
+        'Scheduler': get_scheduler,
+        'Run': run_main_for_IMF,
     },
 'MDL':{
         'Name': 'MDL_Net',
         # generate_model(model_depth=18, in_planes=1, num_classes=2)
         'Model': generate_model,
+        'dataset': MriPetDatasetWithTwoInput,
+        'shape': (96, 128, 96),
         'Loss': CrossEntropyLoss,
         'Optimizer': SGD,
         'batch_size': 8,
@@ -90,8 +100,23 @@ models = {
         'weight_decay':0.01,
         'momentum':0.9,
         'label_smoothing':0.2,
-        'Epoch': 200,
+        'Epoch': 150,
         'Run': run_main_for_MDL,
+        'Scheduler': get_scheduler,
+},
+'RLAD':{
+        'Name': 'RLAD_Net',
+        # generate_model(model_depth=18, in_planes=1, num_classes=2)
+        'Model': get_model,
+        'dataset': MriDataset,
+        'shape': (128, 128, 128),
+        'Loss': CrossEntropyLoss,
+        'Optimizer': Adam,
+        'batch_size': 2,
+        'Lr': 0.001,
+        'weight_decay':1e-5,
+        'Epoch': 150,
+        'Run': run_main_for_RLAD,
         'Scheduler': get_scheduler,
 }
 

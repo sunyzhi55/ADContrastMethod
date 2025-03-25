@@ -3,14 +3,14 @@ import argparse
 
 def parse_args():
     parser = argparse.ArgumentParser(description='GAN NetWork')
-    parser.add_argument('--batch_size', type=int, default=8, help='input batch size')
+    parser.add_argument('--batch_size', type=int, default=2, help='input batch size')
     parser.add_argument('--drop_ratio', default=0,
                         help='Probability to drop a cropped area if the label is empty. All empty patches will be dropped for 0 and accept all cropped patches if set to 1')
     parser.add_argument('--gpu_ids',type=str, default='0', help='gpu ids: e.g. 0  0,1,2, 0,2. use -1 for CPU')
     parser.add_argument('--name', type=str, default='experiment_name',
                         help='name of the experiment. It decides where to store samples and models')
-    parser.add_argument('--cli_dir', type=str, default='./ADNI_Clinical.csv', help='pet input path')
-    parser.add_argument('----model', type=str, default='IMF')
+    parser.add_argument('--cli_dir', type=str, default='./csv/ADNI_Clinical.csv', help='pet input path')
+    parser.add_argument('----model', type=str, default='RLAD')
     parser.add_argument("--seed", default=42, type=int, help="seed given by LinkStart.py on cross Val")
 
     parser.add_argument("--n_splits", default=5, type=int, help="0~4")
@@ -21,9 +21,9 @@ def parse_args():
     # /home/publicdata/ADNI/ADNI1
     # /mntcephfs/med_dataset/huxiangyang/ADNI/freesurfer/ADNI1
     # /data3/wangchangmiao/ADNI/freesurfer/ADNI1
-    parser.add_argument('--mri_dir', type=str, default='/data3/wangchangmiao/ADNI/freesurfer/ADNI1/MRI', help='mri input path')
-    parser.add_argument('--pet_dir', type=str, default='/data3/wangchangmiao/ADNI/freesurfer/ADNI1/PET_PULS_GENERATE', help='pet input path')
-    parser.add_argument('--csv_file', type=str, default='./ADNI1_label.csv', help='label input path')
+    parser.add_argument('--mri_dir', type=str, default='/data3/wangchangmiao/shenxy/ADNI/ADNI1/MRI', help='mri input path')
+    parser.add_argument('--pet_dir', type=str, default='/data3/wangchangmiao/shenxy/ADNI/ADNI1/PET', help='pet input path')
+    parser.add_argument('--csv_file', type=str, default='./csv/ADNI1_match_train.csv', help='label input path')
 
     parser.add_argument('--best_result_model_path', type=str,default='best_result.pth', help='the best result model path')
     parser.add_argument('--device', type=str, default='cuda:0', help='device to run')
