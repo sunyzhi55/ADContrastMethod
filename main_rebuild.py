@@ -41,11 +41,12 @@ def prepare_to_train(mri_dir, pet_dir, cli_dir, csv_file, batch_size, model_inde
     # 存储每个fold的评估指标
     metrics = {
         'accuracy': [],
-        'auc': [],
-        'f1': [],
         'precision': [],
         'recall': [],
-        'Specificity': []
+        'balanceAccuracy':[],
+        'Specificity': [],
+        'auc': [],
+        'f1': [],
     }
     # 训练日志和监控
     current_time = str(datetime.now().strftime('%Y-%m-%d_%H-%M'))
@@ -54,7 +55,7 @@ def prepare_to_train(mri_dir, pet_dir, cli_dir, csv_file, batch_size, model_inde
     observer = RuntimeObserver(log_dir=target_dir, device=device, name=experiment_settings['Name'], seed=seed)
     # for fold, (train_index, test_index) in enumerate(kf.split(dataset)):
     for fold, (train_index, test_index) in enumerate(skf.split(dataset, labels), 1):
-        print(f'Fold {fold + 1}/{5}')
+        print(f'Fold {fold}/{5}')
         train_sampler = torch.utils.data.SubsetRandomSampler(train_index)
         val_sampler = torch.utils.data.SubsetRandomSampler(test_index)
         trainDataLoader = torch.utils.data.DataLoader(dataset, sampler=train_sampler, batch_size=batch_size,
@@ -125,12 +126,13 @@ def prepare_to_train(mri_dir, pet_dir, cli_dir, csv_file, batch_size, model_inde
              optimizer, criterion, scheduler, fold)
 
         # 收集评估指标
-        metrics['accuracy'].append(observer.best_dicts['acc'])
-        metrics['auc'].append(observer.best_dicts['auc'])
-        metrics['f1'].append(observer.best_dicts['f1'])
-        metrics['precision'].append(observer.best_dicts['p'])
-        metrics['recall'].append(observer.best_dicts['recall'])
-        metrics['Specificity'].append(observer.best_dicts['spe'])
+        metrics['accuracy'].append(observer.best_dicts['Accuracy'])
+        metrics['precision'].append(observer.best_dicts['Precision'])
+        metrics['recall'].append(observer.best_dicts['Recall'])
+        metrics['Specificity'].append(observer.best_dicts['Specificity'])
+        metrics['balanceAccuracy'].append(observer.best_dicts['BalanceAccuracy'])
+        metrics['auc'].append(observer.best_dicts['AuRoc'])
+        metrics['f1'].append(observer.best_dicts['F1'])
 
     # for key in metrics:
     #     mean_value = np.mean(metrics[key].cpu().numpy())

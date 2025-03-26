@@ -49,7 +49,7 @@ def run_main_1(observer, epochs, train_loader, test_loader, model, device, optim
         if observer.execute(epoch, epochs, len(train_loader.dataset),len(test_loader.dataset), fold, model=model):
             print("Early stopping")
             break
-    observer.finish()
+    observer.finish(fold)
 
 def run_main(observer, epochs, train_loader, test_loader, model, device, optimizer, criterion, lr_scheduler, fold):
     model = model.to(device)
@@ -94,7 +94,7 @@ def run_main(observer, epochs, train_loader, test_loader, model, device, optimiz
         if observer.execute(epoch, model=model):
             print("Early stopping")
             break
-    observer.finish()
+    observer.finish(fold)
 
 def run_main_for_IMF(observer, epochs, train_loader, test_loader, model, device, optimizer, criterion, lr_scheduler, fold):
     model = model.to(device)
@@ -148,7 +148,7 @@ def run_main_for_IMF(observer, epochs, train_loader, test_loader, model, device,
         if observer.execute(epoch + 1, epochs, len(train_loader.dataset),len(test_loader.dataset), fold, model=model):
             print("Early stopping")
             break
-    observer.finish()
+    observer.finish(fold)
 
 
 def run_main_for_MDL(observer, epochs, train_loader, test_loader, model, device, optimizer, criterion, lr_scheduler, fold):
@@ -205,7 +205,7 @@ def run_main_for_MDL(observer, epochs, train_loader, test_loader, model, device,
         if observer.execute(epoch, epochs, len(train_loader.dataset),len(test_loader.dataset), fold, model=model):
             print("Early stopping")
             break
-    observer.finish()
+    observer.finish(fold)
 
 
 def run_main_for_RLAD(observer, epochs, train_loader, test_loader, model, device, optimizer, criterion, lr_scheduler, fold):
@@ -249,5 +249,5 @@ def run_main_for_RLAD(observer, epochs, train_loader, test_loader, model, device
         if observer.execute(epoch, model=model):
             print("Early stopping")
             break
-    observer.finish()
+    observer.finish(fold)
 
