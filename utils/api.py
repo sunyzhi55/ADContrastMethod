@@ -145,7 +145,7 @@ def run_main_for_IMF(observer, epochs, train_loader, test_loader, model, device,
                 prob_positive = prob[:, 1]
                 # predictions = (prob > 0.5).float()
                 observer.eval_update(loss, predictions, prob_positive, label)
-        if observer.execute(epoch, epochs, len(train_loader.dataset),len(test_loader.dataset), fold, model=model):
+        if observer.execute(epoch + 1, epochs, len(train_loader.dataset),len(test_loader.dataset), fold, model=model):
             print("Early stopping")
             break
     observer.finish()

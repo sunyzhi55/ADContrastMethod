@@ -181,8 +181,8 @@ class RuntimeObserver:
                                f"train_precision={self.train_metric['Precision']}, \n"
                                f"train_specificity={self.train_metric['Specificity']}, \n"
                                f"train_balance_acc={self.train_balance_accuracy},\n "
-                               f""f"train_f1_score={self.train_metric['F1']},\n "
-                               f"train_auc = {self.train_auc}")
+                               f"train_f1_score={self.train_metric['F1']},\n "
+                               f"train_auc = {self.train_auc}\n")
         eval_output_result = (f"Epoch [{e}/{epochs}]:, eval_loss={self.average_eval_loss:.3f}, \n"
                                f"eval_confusionMatrix:\n{self.eval_metric['confusionMatrix']}\n"
                                f"eval_accuracy={self.eval_metric['Accuracy']}, \n"
@@ -190,8 +190,8 @@ class RuntimeObserver:
                                f"eval_precision={self.eval_metric['Precision']}, \n"
                                f"eval_specificity={self.eval_metric['Specificity']}, \n"
                                f"eval_balance_acc={self.eval_balance_accuracy},\n "
-                               f""f"eval_f1_score={self.eval_metric['F1']},\n "
-                               f"eval_auc = {self.eval_auc}")
+                               f"eval_f1_score={self.eval_metric['F1']},\n "
+                               f"eval_auc = {self.eval_auc}\n")
         # 将完整的字符串写入文件
         self.log(train_output_result)
         self.log(eval_output_result)
@@ -213,15 +213,15 @@ class RuntimeObserver:
         self.print_result(e, epoch)
         if self.eval_metric['Accuracy'] > self.best_dicts['Accuracy']:
             # abs(total_precision - total_recall) <= abs(self.best_dicts['p'] - self.best_dicts['recall']):
-            self.get_best(epoch)
+            self.get_best(e)
             model_save_path = self.log_dir + f'{str(self._kwargs["name"])}_best_model_fold{fold}.pth'
             torch.save(model.state_dict(), model_save_path)
-            self.log(f"Best model saved to {model_save_path}\n")
+            self.log(f"Best model saved to {model_save_path}\n\n")
         self.early_stopping(self.eval_metric['Accuracy'])
         return self.early_stopping.early_stop
 
     def finish(self, fold):
-        best_result = (f"Fold {fold} Best Epoch: {self.best_dicts['epoch']}\n"
+        best_result = (f"Fold {fold + 1} Best Epoch: {self.best_dicts['epoch']}\n"
                        f"Best confusionMatrix : {self.best_dicts['confusionMatrix']}\n"
                        f"Best accuracy : {self.best_dicts['Accuracy']}, \n"
                        f"Best recall : {self.best_dicts['Recall']}, \n"
