@@ -1,18 +1,17 @@
 import time
-import argparse
-import os
-os.environ['CUDA_VISIBLE_DEVICES'] = '2, 3'
+# import os
+# os.environ['CUDA_VISIBLE_DEVICES'] = '2, 3'
 from datetime import datetime
 from pathlib import Path
-from sklearn.model_selection import KFold, StratifiedKFold
-from Dataset import MriPetDataset, MriPetDatasetWithTowLabel, MriPetDatasetWithTwoInput
+from sklearn.model_selection import StratifiedKFold
 import torch.utils.data
 from model_object import models
 from Config import parse_args
-from observer import Runtime_Observer
-from Net.api import *
+from utils.observer import RuntimeObserver
+from utils.api import *
 from thop import profile, clever_format
-import numpy as np
+
+
 #99480885
 #
 def prepare_to_train(mri_dir, pet_dir, cli_dir, csv_file, batch_size, model_index,
@@ -40,7 +39,7 @@ def prepare_to_train(mri_dir, pet_dir, cli_dir, csv_file, batch_size, model_inde
     # K折交叉验证
     # kf = KFold(n_splits=n_splits, shuffle=True, random_state=seed)
     skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=seed)
-    labels = [data[1] for data in dataset]  # 假设dataset[i]的第3项是label
+    labels = [data[3] for data in dataset]  # 假设dataset[i]的第3项是label
     # 存储每个fold的评估指标
     metrics = {
         'accuracy': [],
@@ -50,7 +49,11 @@ def prepare_to_train(mri_dir, pet_dir, cli_dir, csv_file, batch_size, model_inde
         'recall': [],
         'Specificity': []
     }
-
+    # 训练日志和监控
+    current_time = str(datetime.now().strftime('%Y-%m-%d_%H-%M'))
+    target_dir = f'./{others_params.checkpoints_dir}_{current_time}/'
+    Path(target_dir).mkdir(exist_ok=True)
+    observer = RuntimeObserver(log_dir=target_dir, device=device, name=experiment_settings['Name'], seed=seed)
     # for fold, (train_index, test_index) in enumerate(kf.split(dataset)):
     for fold, (train_index, test_index) in enumerate(skf.split(dataset, labels), 1):
         print(f'Fold {fold + 1}/{5}')
@@ -70,16 +73,7 @@ def prepare_to_train(mri_dir, pet_dir, cli_dir, csv_file, batch_size, model_inde
         # testDataLoader = torch.utils.data.DataLoader(test_dataset, batch_size=batch_size, shuffle=False,
         #                                              num_workers=4)
 
-        # 训练日志和监控
-        target_dir = Path('./checkpoints/')
-        target_dir.mkdir(exist_ok=True)
-        current_time = str(datetime.now().strftime('%Y-%m-%d_%H-%M'))
-        target_dir = target_dir.joinpath(experiment_settings['Name'] + f'_{current_time}_fold_{fold}')
-        target_dir.mkdir(exist_ok=True)
-
-        observer = Runtime_Observer(log_dir=target_dir, device=device, name=experiment_settings['Name'], seed=seed)
         observer.log(f'[DEBUG] Observer init successfully, program start @{current_time}\n')
-
         # 模型加载
         _model = experiment_settings['Model']
         if model_index == 'MDL':
@@ -90,9 +84,9 @@ def prepare_to_train(mri_dir, pet_dir, cli_dir, csv_file, batch_size, model_inde
             print(f"The name of model will run {_model}")
             model = _model()
         # 使用 DataParallel 进行多GPU训练
-        if torch.cuda.device_count() > 1 and data_parallel == 1:
-            observer.log("Using " + str(torch.cuda.device_count()) + " GPUs for training.\n")
-            model = torch.nn.DataParallel(model)
+        # if torch.cuda.device_count() > 1 and data_parallel == 1:
+        #     observer.log("Using " + str(torch.cuda.device_count()) + " GPUs for training.\n")
+        #     model = torch.nn.DataParallel(model)
 
         observer.log(f'Use model : {str(experiment_settings)}\n')
         num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -130,7 +124,7 @@ def prepare_to_train(mri_dir, pet_dir, cli_dir, csv_file, batch_size, model_inde
         # 启动训练
         _run = experiment_settings['Run']
         _run(observer, experiment_settings['Epoch'], trainDataLoader, testDataLoader, model, device,
-             optimizer, criterion, scheduler)
+             optimizer, criterion, scheduler, fold)
 
         # 收集评估指标
         metrics['accuracy'].append(observer.best_dicts['acc'])

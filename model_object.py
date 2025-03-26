@@ -1,11 +1,11 @@
 from torch.nn import CrossEntropyLoss
 from torch.optim import *
 from Net.TripleNetwork import *
-from MDL_Net.MDL_Net import generate_model, MDL_Net
+from MDL_Net.MDL_Net import generate_model
 from RLAD_Net.taad import get_model
-from Net.api import *
+from utils.api import *
 from loss_function import joint_loss, loss_in_IMF
-from utils import get_scheduler
+from utils.basic import get_scheduler
 from Dataset import MriPetDataset, MriPetDatasetWithTowLabel, MriPetDatasetWithTwoInput, MriDataset
 
 models = {
@@ -73,7 +73,7 @@ models = {
         'Run': run_main,
     },
 'IMF':{
-        'Name': 'Interactive Multimodal Fusion Model',
+        'Name': 'Interactive_Multimodal_Fusion_Model',
         'Model': Interactive_Multimodal_Fusion_Model,
         'dataset': MriPetDatasetWithTowLabel,
         'shape': (96, 128, 96),

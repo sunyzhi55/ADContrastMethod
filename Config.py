@@ -10,7 +10,7 @@ def parse_args():
     parser.add_argument('--name', type=str, default='experiment_name',
                         help='name of the experiment. It decides where to store samples and models')
     parser.add_argument('--cli_dir', type=str, default='./csv/ADNI_Clinical.csv', help='pet input path')
-    parser.add_argument('----model', type=str, default='RLAD')
+    parser.add_argument('----model', type=str, default='IMF')
     parser.add_argument("--seed", default=42, type=int, help="seed given by LinkStart.py on cross Val")
 
     parser.add_argument("--n_splits", default=5, type=int, help="0~4")
@@ -32,7 +32,7 @@ def parse_args():
     parser.add_argument('--init_gain', type=float, default=0.02, help='scaling factor for normal, xavier and orthogonal.')
     parser.add_argument('--class_num', type=int, default=2, help='the number of class')
     parser.add_argument('--m', type=float, default=0.999, help='ema momentum decay for prototype update scheme')
-    parser.add_argument('--checkpoints_dir', type=str, default='./result', help='models are saved here')
+    parser.add_argument('--checkpoints_dir', type=str, default='./checkpoints', help='models are saved here')
     parser.add_argument("--epochs", type=int, default=150, help="number of epochs to train")
     parser.add_argument('--print_freq', type=int, default=1,help='frequency of showing training results on console')
     parser.add_argument('--save_epoch_freq', type=int, default=20,help='frequency of saving checkpoints at the end of epochs')
