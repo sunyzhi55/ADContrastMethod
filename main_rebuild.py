@@ -10,8 +10,6 @@ from Config import parse_args
 from utils.observer import RuntimeObserver
 from utils.api import *
 from thop import profile, clever_format
-
-
 #99480885
 #
 def prepare_to_train(mri_dir, pet_dir, cli_dir, csv_file, batch_size, model_index,
