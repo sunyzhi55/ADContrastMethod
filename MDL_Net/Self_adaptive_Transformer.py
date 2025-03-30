@@ -159,8 +159,8 @@ class SelfAdaptiveAttention(nn.Module):
                                      attention_dropout_rate=attention_dropout_rate)
         self.attention_y = Attention(hidden_size=hidden_size, num_heads=num_heads,
                                      attention_dropout_rate=attention_dropout_rate)
-        # self.attention_z = Attention(hidden_size=hidden_size, num_heads=num_heads,
-        #                              attention_dropout_rate=attention_dropout_rate)
+        self.attention_z = Attention(hidden_size=hidden_size, num_heads=num_heads,
+                                     attention_dropout_rate=attention_dropout_rate)
         self.window_attention = WindowAttention(dim=hidden_size, heads=num_heads, head_dim=hidden_size // num_heads,
                                                 window_size=window_size, relative_pos_embedding=True)
         self.norm = nn.Softmax(dim=-1)
@@ -168,24 +168,54 @@ class SelfAdaptiveAttention(nn.Module):
         if pos_embedding is True:
             self.pos_embedding1 = PositionEmbedding(hidden_size, img_size=img_size, patch_size=patch_size, types=0)
             self.pos_embedding2 = PositionEmbedding(hidden_size, img_size=img_size, patch_size=patch_size, types=0)
-            # self.pos_embedding3 = PositionEmbedding(hidden_size, img_size=img_size, patch_size=patch_size, types=0)
+            self.pos_embedding3 = PositionEmbedding(hidden_size, img_size=img_size, patch_size=patch_size, types=0)
 
-    def forward(self, x, y):
+    # 二输入
+    # def forward(self, x, y):
+    #     B, C, D, H, W = x.shape
+    #     w = x + y  # Combine x and y
+    #     x1 = rearrange(x, "b c d h w -> b (w d h) c")
+    #     y1 = rearrange(y, "b c d h w -> b (w d h) c")
+    #     # z1 = rearrange(z, "b c d h w -> b (w d h) c")
+    #     w = w.permute(0, 2, 3, 4, 1)
+    #
+    #     if self.is_position:
+    #         x1 = self.pos_embedding1(x1)
+    #         y1 = self.pos_embedding2(y1)
+    #         # z1 = self.pos_embedding2(z1)
+    #
+    #     x1 = self.attention_x(x1)
+    #     y1 = self.attention_y(y1)
+    #     # z1 = self.attention_z(z1)
+    #     w = self.window_attention(w)
+    #
+    #     w = rearrange(w, "b d h w c -> b (h w d) c", d=D, h=H, w=W)
+    #     # x3 = rearrange(x3, "(b d) (h w) c -> b (h w d) c", d=D, h=H, w=W)
+    #     # x2 = rearrange(x2, "(b h) (d w) c -> b (h w d) c", d=D, h=H, w=W)
+    #     # x1 = rearrange(x1, "(b d) (h w) c -> b (h w d) c", d=D, h=H, w=W)
+    #
+    #     h = self.norm(x1 * y1) * w
+    #     h = self.norm(h)
+    #     out = h * w  # Simplified fusion
+    #
+    #     return out
+    # 三输入
+    def forward(self, x, y, z):
         B, C, D, H, W = x.shape
-        w = x + y  # Combine x and y
+        w = x + y + z
         x1 = rearrange(x, "b c d h w -> b (w d h) c")
         y1 = rearrange(y, "b c d h w -> b (w d h) c")
-        # z1 = rearrange(z, "b c d h w -> b (w d h) c")
+        z1 = rearrange(z, "b c d h w -> b (w d h) c")
         w = w.permute(0, 2, 3, 4, 1)
 
         if self.is_position:
             x1 = self.pos_embedding1(x1)
             y1 = self.pos_embedding2(y1)
-            # z1 = self.pos_embedding2(z1)
+            z1 = self.pos_embedding2(z1)
 
         x1 = self.attention_x(x1)
         y1 = self.attention_y(y1)
-        # z1 = self.attention_z(z1)
+        z1 = self.attention_z(z1)
         w = self.window_attention(w)
 
         w = rearrange(w, "b d h w c -> b (h w d) c", d=D, h=H, w=W)
@@ -195,7 +225,7 @@ class SelfAdaptiveAttention(nn.Module):
 
         h = self.norm(x1 * y1) * w
         h = self.norm(h)
-        out = h * w  # Simplified fusion
+        out = (h * z1) * w
 
         return out
 
@@ -211,16 +241,37 @@ class SelfAdaptiveTransformer(nn.Module):
         self.norm = nn.LayerNorm(hidden_size, eps=1e-6)
         self.mlp = Mlp(hidden_size, hidden_size * 2, dropout_rate=0.2)
 
-    def forward(self, x, y):
+    # 二输入
+    # def forward(self, x, y):
+    #     B, C, D, H, W = x.shape
+    #     x = rearrange(x, "b c d h w -> b (h w d) c")
+    #     x = self.norm(x)
+    #     y = rearrange(y, "b c d h w -> b (h w d) c")
+    #     y = self.norm(y)
+    #     h = x + y
+    #     x = rearrange(x, "b (h w d) c -> b c d h w", d=D, h=H, w=W)
+    #     y = rearrange(y, "b (h w d) c -> b c d h w", d=D, h=H, w=W)
+    #     x1 = self.mda(x, y)
+    #     x2 = h + x1
+    #     out = self.norm(x2)
+    #     out = self.mlp(out)
+    #     out = x2 + out
+    #
+    #     return out
+    # 三输入
+    def forward(self, x, y, z):
         B, C, D, H, W = x.shape
         x = rearrange(x, "b c d h w -> b (h w d) c")
         x = self.norm(x)
         y = rearrange(y, "b c d h w -> b (h w d) c")
         y = self.norm(y)
-        h = x + y
+        z = rearrange(z, "b c d h w -> b (h w d) c")
+        z = self.norm(z)
+        h = x + y + z
         x = rearrange(x, "b (h w d) c -> b c d h w", d=D, h=H, w=W)
         y = rearrange(y, "b (h w d) c -> b c d h w", d=D, h=H, w=W)
-        x1 = self.mda(x, y)
+        z = rearrange(z, "b (h w d) c -> b c d h w", d=D, h=H, w=W)
+        x1 = self.mda(x, y, z)
         x2 = h + x1
         out = self.norm(x2)
         out = self.mlp(out)
@@ -230,10 +281,23 @@ class SelfAdaptiveTransformer(nn.Module):
 
 
 if __name__ == '__main__':
+    # 二输入
+    # x = torch.randn(2, 4096, 512)
+    # x1 = torch.randn(1, 128, 4, 4, 4)
+    # x2 = torch.randn(1, 128, 4, 4, 4)
+    # mdt = SelfAdaptiveTransformer(hidden_size=128, img_size=(128, 128, 128), patch_size=(32, 32, 32), num_heads=4,
+    #                              attention_dropout_rate=0.2, window_size=(4, 4, 4))
+    # out = mdt(x1, x2)
+    # print(out.shape)
+
+    # 三输入
     x = torch.randn(2, 4096, 512)
     x1 = torch.randn(1, 128, 4, 4, 4)
-    x2 = torch.randn(1, 128, 4, 4, 4)
+    pos = PositionEmbedding(hidden_size=128, img_size=[128, 128, 128], patch_size=[8, 8, 8])
+    mda = SelfAdaptiveAttention(hidden_size=512, img_size=(128, 128, 128), patch_size=(8, 8, 8), num_heads=4,
+                               attention_dropout_rate=0.2, window_size=(4, 4, 4))
     mdt = SelfAdaptiveTransformer(hidden_size=128, img_size=(128, 128, 128), patch_size=(32, 32, 32), num_heads=4,
                                  attention_dropout_rate=0.2, window_size=(4, 4, 4))
-    out = mdt(x1, x2)
+    # out = pos(x)
+    out = mdt(x1, x1, x1)
     print(out.shape)

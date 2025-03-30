@@ -244,57 +244,7 @@ class MDL_Net(nn.Module):
 
         # return out
         return s1, s2, s3, s4
-
-    # def forward(self, x):
-    #     # Upsample and Split Multimodal Feature
-    #     x = F.interpolate(x, [128, 128, 128], mode='trilinear')
-    #     x1 = x[:, 0, :, :, :]
-    #     x1 = torch.unsqueeze(x1, dim=1)    # The unsqueeze operation is to add channel of single-modal dataset
-    #     x2 = x[:, 1, :, :, :]
-    #     x2 = torch.unsqueeze(x2, dim=1)
-    #     x3 = x[:, 2, :, :, :]
-    #     x3 = torch.unsqueeze(x3, dim=1)
-    #
-    #     # Extract single modal feature
-    #     x1_s1, x1_s2, x1_s3, x1_s4 = self.feature_forward(x1)
-    #     x2_s1, x2_s2, x2_s3, x2_s4 = self.feature_forward(x2)
-    #     x3_s1, x3_s2, x3_s3, x3_s4 = self.feature_forward(x3)
-    #
-    #     # Global-aware Learning
-    #     x1_s4 = self.dropout(x1_s4)
-    #     x2_s4 = self.dropout(x2_s4)
-    #     x3_s4 = self.dropout(x3_s4)
-    #     b, c, h, w, d = x1_s4.size()
-    #     fusion = self.global_fusion(x1_s4, x2_s4, x3_s4)
-    #     fusion = rearrange(fusion, 'b (h w d) c->b c h w d', h=h, w=w, d=d)
-    #     fusion = self.avgpool(fusion)
-    #     out_global = fusion.view(fusion.shape[0], -1)
-    #
-    #     # Latent-space aware Learning
-    #     out_latent = self.fbc(x1_s4, x2_s4, x3_s4)
-    #     out = torch.cat((out_global, out_latent), dim=1)
-    #
-    #     # Local-aware Learning
-    #     out_s1 = x1_s1 + x2_s1 + x3_s1
-    #     out_s2 = x1_s2 + x2_s2 + x3_s2
-    #     out_s3 = x1_s3 + x2_s3 + x3_s3
-    #     # out_s4 = x1_s4 + x2_s4 + x3_s4
-    #     fusion_l = self.local_fusion(out_s1, out_s2, out_s3)
-    #     fusion_l = self.avgpool(fusion_l)
-    #     fusion_l = fusion_l.view(fusion_l.shape[0], -1)
-    #     out = torch.cat((out, fusion_l), dim=1)
-    #     class_out = self.pred_fc(out)
-    #
-    #     # Diseased-incuded ROI Learning
-    #     f_roi = self.fc_roi(out).unsqueeze(dim=1)
-    #     cls_roi = self.fc_cls2roi(class_out).unsqueeze(dim=1)
-    #     roi = self.roi(f_roi, cls_roi)
-    #     roi_cls = self.roi_fc(roi)
-    #
-    #     # Classification
-    #     class_out = class_out + roi_cls
-    #
-    #     return class_out, roi
+    # 三输入
     def forward(self, x):
         # Upsample and Split Multimodal Feature
         x = F.interpolate(x, [128, 128, 128], mode='trilinear')
@@ -302,36 +252,34 @@ class MDL_Net(nn.Module):
         x1 = torch.unsqueeze(x1, dim=1)  # The unsqueeze operation is to add channel of single-modal dataset
         x2 = x[:, 1, :, :, :]
         x2 = torch.unsqueeze(x2, dim=1)
-        # 移除x3的相关处理，因为我们只有两个输入
+        x3 = x[:, 2, :, :, :]
+        x3 = torch.unsqueeze(x3, dim=1)
 
         # Extract single modal feature
         x1_s1, x1_s2, x1_s3, x1_s4 = self.feature_forward(x1)
         x2_s1, x2_s2, x2_s3, x2_s4 = self.feature_forward(x2)
-        # 移除x3的相关处理
+        x3_s1, x3_s2, x3_s3, x3_s4 = self.feature_forward(x3)
 
         # Global-aware Learning
         x1_s4 = self.dropout(x1_s4)
         x2_s4 = self.dropout(x2_s4)
-        # 移除x3_s4的相关处理
+        x3_s4 = self.dropout(x3_s4)
         b, c, h, w, d = x1_s4.size()
-        # 假设global_fusion现在只接受两个输入，需要相应调整global_fusion的实现
-        fusion = self.global_fusion(x1_s4, x2_s4)  # 根据需要调整global_fusion以接受两个输入
+        fusion = self.global_fusion(x1_s4, x2_s4, x3_s4)
         fusion = rearrange(fusion, 'b (h w d) c->b c h w d', h=h, w=w, d=d)
         fusion = self.avgpool(fusion)
         out_global = fusion.view(fusion.shape[0], -1)
 
         # Latent-space aware Learning
-        # 假设fbc现在只接受两个输入，需要相应调整fbc的实现
-        out_latent = self.fbc(x1_s4, x2_s4)  # 根据需要调整fbc以接受两个输入
+        out_latent = self.fbc(x1_s4, x2_s4, x3_s4)
         out = torch.cat((out_global, out_latent), dim=1)
 
         # Local-aware Learning
-        out_s1 = x1_s1 + x2_s1
-        out_s2 = x1_s2 + x2_s2
-        out_s3 = x1_s3 + x2_s3
-        # 移除x3_s*的相关处理
-        # 假设local_fusion现在只接受三个输入（这里是两个特征的和），如果local_fusion逻辑依赖三个输入，需要相应调整
-        fusion_l = self.local_fusion(out_s1, out_s2, out_s3)  # 根据local_fusion的实际逻辑调整
+        out_s1 = x1_s1 + x2_s1 + x3_s1
+        out_s2 = x1_s2 + x2_s2 + x3_s2
+        out_s3 = x1_s3 + x2_s3 + x3_s3
+        # out_s4 = x1_s4 + x2_s4 + x3_s4
+        fusion_l = self.local_fusion(out_s1, out_s2, out_s3)
         fusion_l = self.avgpool(fusion_l)
         fusion_l = fusion_l.view(fusion_l.shape[0], -1)
         out = torch.cat((out, fusion_l), dim=1)
@@ -347,6 +295,60 @@ class MDL_Net(nn.Module):
         class_out = class_out + roi_cls
 
         return class_out, roi
+
+    # 二输入
+    # def forward(self, x):
+        # # Upsample and Split Multimodal Feature
+        # x = F.interpolate(x, [128, 128, 128], mode='trilinear')
+        # x1 = x[:, 0, :, :, :]
+        # x1 = torch.unsqueeze(x1, dim=1)  # The unsqueeze operation is to add channel of single-modal dataset
+        # x2 = x[:, 1, :, :, :]
+        # x2 = torch.unsqueeze(x2, dim=1)
+        # # 移除x3的相关处理，因为我们只有两个输入
+        #
+        # # Extract single modal feature
+        # x1_s1, x1_s2, x1_s3, x1_s4 = self.feature_forward(x1)
+        # x2_s1, x2_s2, x2_s3, x2_s4 = self.feature_forward(x2)
+        # # 移除x3的相关处理
+        #
+        # # Global-aware Learning
+        # x1_s4 = self.dropout(x1_s4)
+        # x2_s4 = self.dropout(x2_s4)
+        # # 移除x3_s4的相关处理
+        # b, c, h, w, d = x1_s4.size()
+        # # 假设global_fusion现在只接受两个输入，需要相应调整global_fusion的实现
+        # fusion = self.global_fusion(x1_s4, x2_s4)  # 根据需要调整global_fusion以接受两个输入
+        # fusion = rearrange(fusion, 'b (h w d) c->b c h w d', h=h, w=w, d=d)
+        # fusion = self.avgpool(fusion)
+        # out_global = fusion.view(fusion.shape[0], -1)
+        #
+        # # Latent-space aware Learning
+        # # 假设fbc现在只接受两个输入，需要相应调整fbc的实现
+        # out_latent = self.fbc(x1_s4, x2_s4)  # 根据需要调整fbc以接受两个输入
+        # out = torch.cat((out_global, out_latent), dim=1)
+        #
+        # # Local-aware Learning
+        # out_s1 = x1_s1 + x2_s1
+        # out_s2 = x1_s2 + x2_s2
+        # out_s3 = x1_s3 + x2_s3
+        # # 移除x3_s*的相关处理
+        # # 假设local_fusion现在只接受三个输入（这里是两个特征的和），如果local_fusion逻辑依赖三个输入，需要相应调整
+        # fusion_l = self.local_fusion(out_s1, out_s2, out_s3)  # 根据local_fusion的实际逻辑调整
+        # fusion_l = self.avgpool(fusion_l)
+        # fusion_l = fusion_l.view(fusion_l.shape[0], -1)
+        # out = torch.cat((out, fusion_l), dim=1)
+        # class_out = self.pred_fc(out)
+        #
+        # # Diseased-incuded ROI Learning
+        # f_roi = self.fc_roi(out).unsqueeze(dim=1)
+        # cls_roi = self.fc_cls2roi(class_out).unsqueeze(dim=1)
+        # roi = self.roi(f_roi, cls_roi)
+        # roi_cls = self.roi_fc(roi)
+        #
+        # # Classification
+        # class_out = class_out + roi_cls
+        #
+        # return class_out, roi
 
 
 def generate_model(model_depth, in_planes, num_classes, **kwargs):
@@ -383,18 +385,32 @@ if __name__ == '__main__':
     The shpae of x: [b, m, h, w, d]
     m is the number of modality, i.e, if have three multimodal dataset, m is 3
     '''
-    x = torch.ones(3, 2, 100, 120, 100)
+    # 二输入
+    # x = torch.ones(3, 2, 100, 120, 100)
+    # y = torch.randn(1, 90)
+    # time_start = time.time()
+    # model = generate_model(model_depth=18, in_planes=1, num_classes=2)
+    #
+    # output, roi = model(x)
+    # time_over = time.time()
+    # print(output.shape)
+    # print(roi.shape)
+    # flops, params = profile(model, (x,))
+    # # compute the parameters for model
+    # print("参数量", sum(p.numel() for p in model.parameters()))
+    # print('flops: %.2f M, params: %.2f M' % (flops / 1000000.0, params / 1000000.0))
+    # print('time:{}s'.format(time_over - time_start))
+    # 三输入
+    x = torch.ones(3, 3, 100, 120, 100)
     y = torch.randn(1, 90)
     time_start = time.time()
-    model = generate_model(model_depth=18, in_planes=1, num_classes=2)
+    model = generate_model(model_depth=18, in_planes=1, num_classes=3)
 
     output, roi = model(x)
     time_over = time.time()
     print(output.shape)
     print(roi.shape)
     flops, params = profile(model, (x,))
-    # compute the parameters for model
-    print("参数量", sum(p.numel() for p in model.parameters()))
     print('flops: %.2f M, params: %.2f M' % (flops / 1000000.0, params / 1000000.0))
     print('time:{}s'.format(time_over - time_start))
     """

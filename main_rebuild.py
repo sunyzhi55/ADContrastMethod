@@ -52,17 +52,16 @@ def prepare_to_train(mri_dir, pet_dir, cli_dir, csv_file, batch_size, model_inde
     current_time = str(datetime.now().strftime('%Y-%m-%d_%H-%M'))
     target_dir = f'./{others_params.checkpoints_dir}_{current_time}/'
     Path(target_dir).mkdir(exist_ok=True)
-    observer = RuntimeObserver(log_dir=target_dir, device=device, name=experiment_settings['Name'], seed=seed)
     # for fold, (train_index, test_index) in enumerate(kf.split(dataset)):
     for fold, (train_index, test_index) in enumerate(skf.split(dataset, labels), 1):
-        print(f'Fold {fold}/{5}')
+        observer = RuntimeObserver(log_dir=target_dir, device=device, name=experiment_settings['Name'], seed=seed)
+        observer.log(f'Fold {fold}/{5}')
         train_sampler = torch.utils.data.SubsetRandomSampler(train_index)
         val_sampler = torch.utils.data.SubsetRandomSampler(test_index)
         trainDataLoader = torch.utils.data.DataLoader(dataset, sampler=train_sampler, batch_size=batch_size,
                                                       num_workers=4, drop_last=True)
         testDataLoader = torch.utils.data.DataLoader(dataset, sampler=val_sampler, batch_size=batch_size,
                                                      num_workers=4, drop_last=True)
-
         # 分割数据集
         # train_dataset = torch.utils.data.Subset(dataset, train_index)
         # test_dataset = torch.utils.data.Subset(dataset, test_index)
@@ -133,13 +132,6 @@ def prepare_to_train(mri_dir, pet_dir, cli_dir, csv_file, batch_size, model_inde
         metrics['balanceAccuracy'].append(observer.best_dicts['BalanceAccuracy'])
         metrics['auc'].append(observer.best_dicts['AuRoc'])
         metrics['f1'].append(observer.best_dicts['F1'])
-
-    # for key in metrics:
-    #     mean_value = np.mean(metrics[key].cpu().numpy())
-    #     std_value = np.std(metrics[key].cpu().numpy())
-    #     print(f'{key.capitalize()} - Mean: {mean_value:.4f}, Std: {std_value:.4f}')
-    # print(f'ACC:{metrics}')
-
     print("Cross-validation training completed for all folds.")
     return metrics
 
@@ -149,25 +141,25 @@ if __name__ == "__main__":
     # compute the flops and params
 
     # IMF
-    mri_demo = torch.ones(1, 1, 96, 128, 96)
-    pet_demo = torch.ones(1, 1, 96, 128, 96)
-    cli_demo = torch.ones(1, 9)
-
-    model_demo = models[args.model]['Model']()
-    flops, params = profile(model_demo, inputs=(mri_demo, pet_demo, cli_demo,), verbose=False)
-    flops, params = clever_format([flops, params], "%.3f")
-    params_result = f'flops: {flops}, params: {params}'
-
-    # MDL
-    # mri_demo = torch.ones(1, 1, 128, 128, 128)
-    # pet_demo = torch.ones(1, 1, 128, 128, 128)
+    # mri_demo = torch.ones(1, 1, 96, 128, 96)
+    # pet_demo = torch.ones(1, 1, 96, 128, 96)
     # cli_demo = torch.ones(1, 9)
-    # inputs = torch.cat([mri_demo, pet_demo], dim=1)
-    # print("inputs", inputs.shape)
-    # model_demo = models[args.model]['Model'](model_depth=18, in_planes=1, num_classes=2)
-    # flops, params = profile(model_demo, inputs=(inputs, ), verbose=False)
+    #
+    # model_demo = models[args.model]['Model']()
+    # flops, params = profile(model_demo, inputs=(mri_demo, pet_demo, cli_demo,), verbose=False)
     # flops, params = clever_format([flops, params], "%.3f")
     # params_result = f'flops: {flops}, params: {params}'
+
+    # MDL
+    gm_demo = torch.ones(1, 1, 128, 128, 128)
+    wm_demo = torch.ones(1, 1, 128, 128, 128)
+    pet_demo = torch.ones(1, 1, 128, 128, 128)
+    inputs = torch.cat([gm_demo, wm_demo, pet_demo], dim=1)
+    print("inputs", inputs.shape)
+    model_demo = models[args.model]['Model'](model_depth=18, in_planes=1, num_classes=2)
+    flops, params = profile(model_demo, inputs=(inputs, ), verbose=False)
+    flops, params = clever_format([flops, params], "%.3f")
+    params_result = f'flops: {flops}, params: {params}'
 
     # RLAD
     # mri_demo = torch.ones(1, 1, 128, 128, 128)

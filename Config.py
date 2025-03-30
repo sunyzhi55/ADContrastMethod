@@ -10,7 +10,7 @@ def parse_args():
     parser.add_argument('--name', type=str, default='experiment_name',
                         help='name of the experiment. It decides where to store samples and models')
     parser.add_argument('--cli_dir', type=str, default='./csv/ADNI_Clinical.csv', help='pet input path')
-    parser.add_argument('----model', type=str, default='IMF')
+    parser.add_argument('----model', type=str, default='MDL')
     parser.add_argument("--seed", default=42, type=int, help="seed given by LinkStart.py on cross Val")
 
     parser.add_argument("--n_splits", default=5, type=int, help="0~4")
@@ -39,7 +39,7 @@ def parse_args():
     parser.add_argument('--beta1', type=float, default=0.5, help='momentum term of adam')
     parser.add_argument('--lr', type=float, default=0.001, help='initial learning rate for adam')
     parser.add_argument('--lr_decay', type=float, default=0.95, help='initial lambda decay value')
-    parser.add_argument('--lr_policy', type=str, default='exp', help='learning rate policy: lambda|step|plateau|cosine')
+    parser.add_argument('--lr_policy', type=str, default='lr_policy', help='learning rate policy: lambda|step|plateau|cosine')
     parser.add_argument('--interpolation_lambda', type=float, default=20.0, help='interpolation strength')
     parser.add_argument('--logs', type=str, default='./logs.txt', help='logs to record the resultl')
     args = parser.parse_args()

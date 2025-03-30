@@ -54,14 +54,7 @@ class RuntimeObserver:
         # train stage
         self.total_train_loss = 0.
         self.average_train_loss = 0.
-        # self.total_train_acc = 0.
-        # self.total_train_recall = 0.
-        # self.total_train_precision = 0.
-        # self.total_train_auc = 0.
-        # self.total_train_F1 = 0.
-        # self.total_train_spe = 0.
         self.train_metric = {}
-        print(device)
         self.train_metric_collection = MetricCollection({
             'confusionMatrix': ConfusionMatrix(num_classes=2, task='binary').to(device),
             'Accuracy': Accuracy(num_classes=2, task='binary').to(device),
@@ -79,12 +72,6 @@ class RuntimeObserver:
         # test stage
         self.total_eval_loss = 0.
         self.average_eval_loss = 0.
-        # self.total_eval_acc = 0.
-        # self.total_eval_recall = 0.
-        # self.total_eval_precision = 0.
-        # self.total_eval_auc = 0.
-        # self.total_eval_F1 = 0.
-        # self.total_eval_spe = 0.
         self.eval_metric = {}
         self.eval_metric_collection = MetricCollection({
             'confusionMatrix': ConfusionMatrix(num_classes=2, task='binary').to(device),
@@ -107,27 +94,14 @@ class RuntimeObserver:
     def reset(self):
         self.total_train_loss = 0.
         self.average_train_loss = 0.
-        # self.total_train_acc = 0.
-        # self.total_train_recall = 0.
-        # self.total_train_precision = 0.
-        # self.total_train_auc = 0.
-        # self.total_train_F1 = 0.
-        # self.total_train_spe = 0.
         self.train_metric = {}
         self.train_metric_collection.reset()
         self.compute_train_auc.reset()
         self.train_auc = 0.
         self.train_balance_accuracy = 0.
 
-        # test stage
         self.total_eval_loss = 0.
         self.average_eval_loss = 0.
-        # self.total_eval_acc = 0.
-        # self.total_eval_recall = 0.
-        # self.total_eval_precision = 0.
-        # self.total_eval_auc = 0.
-        # self.total_eval_F1 = 0.
-        # self.total_eval_spe = 0.
         self.eval_metric = {}
         self.eval_metric_collection.reset()
         self.compute_eval_auc.reset()
@@ -141,11 +115,6 @@ class RuntimeObserver:
 
     def train_update(self, loss, prediction, prob_positive, label):
         self.total_train_loss += loss.item()
-        # print("loss", loss.device)
-        # print("prediction", prediction.device)
-        # print("prob_positive", prob_positive.device)
-        # print("label", label.device)
-        # print("self.train_metric_collection", self.train_metric_collection.device)
         self.train_metric_collection.forward(prediction, label)
         self.compute_train_auc.update(prob_positive, label)
 
@@ -191,8 +160,7 @@ class RuntimeObserver:
                                f"eval_specificity={self.eval_metric['Specificity']}, \n"
                                f"eval_balance_acc={self.eval_balance_accuracy},\n "
                                f"eval_f1_score={self.eval_metric['F1']},\n "
-                               f"eval_auc = {self.eval_auc}\n")
-        # 将完整的字符串写入文件
+                               f"eval_auc = {self.eval_auc}\n\n")
         self.log(train_output_result)
         self.log(eval_output_result)
 
@@ -221,7 +189,7 @@ class RuntimeObserver:
         return self.early_stopping.early_stop
 
     def finish(self, fold):
-        best_result = (f"Fold {fold + 1} Best Epoch: {self.best_dicts['epoch']}\n"
+        best_result = (f"Fold {fold} Best Epoch: {self.best_dicts['epoch']}\n"
                        f"Best confusionMatrix : {self.best_dicts['confusionMatrix']}\n"
                        f"Best accuracy : {self.best_dicts['Accuracy']}, \n"
                        f"Best recall : {self.best_dicts['Recall']}, \n"
@@ -229,5 +197,5 @@ class RuntimeObserver:
                        f"Best specificity : {self.best_dicts['Specificity']}, \n"
                        f"Best balance_acc : {self.best_dicts['BalanceAccuracy']},\n "
                        f"Best f1_score : {self.best_dicts['F1']},\n "
-                       f"Best AUC:{self.eval_auc}")
+                       f"Best AUC:{self.eval_auc}\n\n")
         self.log(best_result)

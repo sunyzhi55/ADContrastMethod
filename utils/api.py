@@ -46,7 +46,7 @@ def run_main_1(observer, epochs, train_loader, test_loader, model, device, optim
                 prob_positive = outputs[:, 1]
                 # predictions = (prob > 0.5).float()
                 observer.eval_update(loss, predictions, prob_positive, label)
-        if observer.execute(epoch, epochs, len(train_loader.dataset),len(test_loader.dataset), fold, model=model):
+        if observer.execute(epoch + 1, epochs, len(train_loader.dataset),len(test_loader.dataset), fold, model=model):
             print("Early stopping")
             break
     observer.finish(fold)
@@ -162,14 +162,17 @@ def run_main_for_MDL(observer, epochs, train_loader, test_loader, model, device,
 
         train_bar = tqdm(train_loader, desc=f"Training Epoch {epoch}, LR {current_lr:.6f}", unit="batch", file=sys.stdout)
 
-        for ii, (mri_images, pet_image, label) in enumerate(train_bar):
-            if torch.isnan(mri_images).any():
+        for ii, (gm_img_torch, wm_img_torch, pet_img_torch, label) in enumerate(train_bar):
+            if torch.isnan(gm_img_torch).any():
                 print("train: NaN detected in input mri_images")
-            if torch.isnan(pet_image).any():
+            if torch.isnan(wm_img_torch).any():
                 print("train: NaN detected in input pet_image")
-            mri_images = mri_images.to(device)
-            pet_image = pet_image.to(device)
-            input_data = torch.concat([mri_images, pet_image], dim=1)
+            if torch.isnan(pet_img_torch).any():
+                print("train: NaN detected in input pet_image")
+            gm_img_torch = gm_img_torch.to(device)
+            wm_img_torch = wm_img_torch.to(device)
+            pet_img_torch = pet_img_torch.to(device)
+            input_data = torch.concat([gm_img_torch, wm_img_torch, pet_img_torch], dim=1)
             label = label.to(device)
             optimizer.zero_grad()
             # mri_feature, pet_feature, cli_feature, outputs = model.forward(mri_images, pet_image, cli_tab)
@@ -190,10 +193,11 @@ def run_main_for_MDL(observer, epochs, train_loader, test_loader, model, device,
             model.eval()
             # test_bar = tqdm(test_loader, file=sys.stdout)
             test_bar = tqdm(test_loader, desc=f"Evaluating Epoch {epoch}", unit="batch", file=sys.stdout)
-            for i, (mri_images, pet_image, label) in enumerate(test_bar):
-                mri_images = mri_images.to(device)
-                pet_image = pet_image.to(device)
-                input_data = torch.concat([mri_images, pet_image], dim=1)
+            for i, (gm_img_torch, wm_img_torch, pet_img_torch, label) in enumerate(test_bar):
+                gm_img_torch = gm_img_torch.to(device)
+                wm_img_torch = wm_img_torch.to(device)
+                pet_img_torch = pet_img_torch.to(device)
+                input_data = torch.concat([gm_img_torch, wm_img_torch, pet_img_torch], dim=1)
                 label = label.to(device)
                 outputs, roi_out = model(input_data)
                 loss = criterion(outputs, label)
@@ -202,7 +206,7 @@ def run_main_for_MDL(observer, epochs, train_loader, test_loader, model, device,
                 prob_positive = prob[:, 1]
                 # predictions = (prob > 0.5).float()
                 observer.eval_update(loss, predictions, prob_positive, label)
-        if observer.execute(epoch, epochs, len(train_loader.dataset),len(test_loader.dataset), fold, model=model):
+        if observer.execute(epoch + 1, epochs, len(train_loader.dataset),len(test_loader.dataset), fold, model=model):
             print("Early stopping")
             break
     observer.finish(fold)

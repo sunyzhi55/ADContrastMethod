@@ -72,8 +72,7 @@ class Resize:  # Python3默认继承object类
         data = skt.resize(data, output_shape=self.output_shape, order=1)
         return data  # 返回预处理后的图像
 
-
-# 自定义 Dataset 类来处理 MRI 和 PET 数据
+# MRI + PET + CLI + Two Label 数据集
 class MriPetDatasetWithTowLabel(Dataset):
     def __init__(self, mri_dir, pet_dir, cli_dir, csv_file, resize_shape=(96, 128, 96), valid_group=("pMCI", "sMCI")):
         """
@@ -139,7 +138,7 @@ class MriPetDatasetWithTowLabel(Dataset):
             pet_img_torch = self.transform(pet_img_numpy)
             return mri_img_torch.float(), pet_img_torch.float(), clin_tab_torch, label, torch.Tensor(label_2d)
 
-# 自定义 Dataset 类来处理 MRI 和 PET 数据
+# MRI + PET + CLI 数据集
 class MriPetDataset(Dataset):
     def __init__(self, mri_dir, pet_dir, cli_dir, csv_file, resize_shape=(96, 128, 96), valid_group=("pMCI", "sMCI")):
         """
@@ -202,7 +201,7 @@ class MriPetDataset(Dataset):
             pet_img_torch = self.transform(pet_img_numpy)
             return mri_img_torch.float(), pet_img_torch.float(), clin_tab_torch, label
 
-# 自定义 Dataset 类来处理 MRI 和 PET 数据
+# MRI + PET 数据集
 class MriPetDatasetWithTwoInput(Dataset):
     def __init__(self, mri_dir, pet_dir, cli_dir, csv_file, resize_shape=(96, 128, 96), valid_group=("pMCI", "sMCI")):
         """
@@ -260,8 +259,7 @@ class MriPetDatasetWithTwoInput(Dataset):
             pet_img_torch = self.transform(pet_img_numpy)
             return mri_img_torch.float(), pet_img_torch.float(), label
 
-
-# 自定义 Dataset 类来处理 MRI 和 PET 数据
+# 单MRI 数据集
 class MriDataset(Dataset):
     def __init__(self, mri_dir, pet_dir, cli_dir, csv_file, resize_shape=(96, 128, 96), valid_group=("pMCI", "sMCI")):
         """
@@ -308,6 +306,63 @@ class MriDataset(Dataset):
         mri_img_torch = self.transform(mri_img_numpy)
         label = self.groups.get(label_str, -1)  # 获取标签，默认值为 -1
         return mri_img_torch.float(), label
+
+# 自定义 Dataset 类来处理 MRI 和 PET 数据
+class GMWMPETDataset(Dataset):
+    def __init__(self, mri_dir, pet_dir, cli_dir, csv_file, resize_shape=(96, 128, 96), valid_group=("pMCI", "sMCI")):
+        """
+        Args:
+            mri_dir (string or Path): MRI 文件所在的文件夹路径。
+            pet_dir (string or Path): PET 文件所在的文件夹路径。
+            cli_dir (string or Path): Clinical 文件所在的文件夹路径。
+            csv_file (string or Path): CSV 文件路径，其中第一列是文件名，第二列是标签。
+            transform (callable, optional): 可选的转换操作，应用于样本。
+        """
+        self.mri_dir = Path(mri_dir)
+        self.GM_dir = Path(mri_dir) / 'GM'
+        self.WM_dir = Path(mri_dir) / 'WM'
+        self.pet_dir = Path(pet_dir)
+        self.cli_dir = pd.read_csv(cli_dir)
+        self.labels_df = pd.read_csv(csv_file)  # 读取 CSV 文件
+        self.groups = {'DM': 1, 'AD': 1, 'CN': 0, 'pMCI': 1, 'sMCI': 0, 'sSCD': 0, 'pSCD': 1,
+                       'MCI': 1, 'sSMC': 0, 'pSMC': 1, 'SMC': 0, 'sCN': 0,
+                       'pCN': 1, 'ppCN': 1, 'Autism': 1, 'Control': 0}
+        self.valid_group = valid_group
+        self.transform = transforms.Compose([
+            Resize(resize_shape),
+            NoNan(),
+            Numpy2Torch(),
+            transforms.Normalize([0.5], [0.5])
+        ])
+
+        # 过滤只保留 valid_group 中的有效数据
+        self.filtered_indices = self.labels_df[self.labels_df.iloc[:, 1].isin(self.valid_group)].index.tolist()
+
+    def __len__(self):
+        return len(self.filtered_indices)
+
+    def __getitem__(self, idx):
+        # 获取过滤后的索引
+        filtered_idx = self.filtered_indices[idx]
+        # 获取对应的文件名和标签
+        img_name = self.labels_df.iloc[filtered_idx, 0]
+        label_str = self.labels_df.iloc[filtered_idx, 1]  # 标签
+        # GM 文件路径
+        gm_img_path = self.GM_dir / (img_name + '.nii.gz')
+        gm_img_numpy = nib.load(str(gm_img_path)).get_fdata()
+        gm_img_torch = self.transform(gm_img_numpy)
+        # WM 文件路径
+        wm_img_path = self.WM_dir / (img_name + '.nii.gz')
+        wm_img_numpy = nib.load(str(wm_img_path)).get_fdata()
+        wm_img_torch = self.transform(wm_img_numpy)
+        # PET 文件路径
+        pet_img_path = self.pet_dir / (img_name + '.nii')
+        # print('pet_img_path', pet_img_path)
+        pet_img_numpy = nib.load(str(pet_img_path)).get_fdata()
+        pet_img_torch = self.transform(pet_img_numpy)
+        label = self.groups.get(label_str, -1)  # 获取标签，默认值为 -1
+
+        return gm_img_torch.float(), wm_img_torch.float(), pet_img_torch.float(), label
 
 if __name__ == '__main__':
     mri_dir = r'/data3/wangchangmiao/ADNI/freesurfer/ADNI1/MRI'  # 替换为 MRI 文件的路径

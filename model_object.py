@@ -6,7 +6,7 @@ from RLAD_Net.taad import get_model
 from utils.api import *
 from loss_function import joint_loss, loss_in_IMF
 from utils.basic import get_scheduler
-from Dataset import MriPetDataset, MriPetDatasetWithTowLabel, MriPetDatasetWithTwoInput, MriDataset
+from Dataset import MriPetDataset, MriPetDatasetWithTowLabel, MriPetDatasetWithTwoInput, MriDataset, GMWMPETDataset
 
 models = {
 'ITCFN':{
@@ -91,7 +91,7 @@ models = {
         'Name': 'MDL_Net',
         # generate_model(model_depth=18, in_planes=1, num_classes=2)
         'Model': generate_model,
-        'dataset': MriPetDatasetWithTwoInput,
+        'dataset': GMWMPETDataset,
         'shape': (96, 128, 96),
         'Loss': CrossEntropyLoss,
         'Optimizer': SGD,
