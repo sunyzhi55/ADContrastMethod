@@ -73,7 +73,7 @@ class Resize:  # Python3默认继承object类
         return data  # 返回预处理后的图像
 
 # MRI + PET + CLI + Two Label 数据集
-class MriPetDatasetWithTowLabel(Dataset):
+class MriPetCliDatasetWithTowLabel(Dataset):
     def __init__(self, mri_dir, pet_dir, cli_dir, csv_file, resize_shape=(96, 128, 96), valid_group=("pMCI", "sMCI")):
         """
         Args:
@@ -139,7 +139,7 @@ class MriPetDatasetWithTowLabel(Dataset):
             return mri_img_torch.float(), pet_img_torch.float(), clin_tab_torch, label, torch.Tensor(label_2d)
 
 # MRI + PET + CLI 数据集
-class MriPetDataset(Dataset):
+class MriPetCliDataset(Dataset):
     def __init__(self, mri_dir, pet_dir, cli_dir, csv_file, resize_shape=(96, 128, 96), valid_group=("pMCI", "sMCI")):
         """
         Args:
@@ -202,7 +202,7 @@ class MriPetDataset(Dataset):
             return mri_img_torch.float(), pet_img_torch.float(), clin_tab_torch, label
 
 # MRI + PET 数据集
-class MriPetDatasetWithTwoInput(Dataset):
+class MriPetDataset(Dataset):
     def __init__(self, mri_dir, pet_dir, cli_dir, csv_file, resize_shape=(96, 128, 96), valid_group=("pMCI", "sMCI")):
         """
         Args:
@@ -307,7 +307,7 @@ class MriDataset(Dataset):
         label = self.groups.get(label_str, -1)  # 获取标签，默认值为 -1
         return mri_img_torch.float(), label
 
-# 自定义 Dataset 类来处理 MRI 和 PET 数据
+# 自定义 Dataset 类 GM WM PET
 class GMWMPETDataset(Dataset):
     def __init__(self, mri_dir, pet_dir, cli_dir, csv_file, resize_shape=(96, 128, 96), valid_group=("pMCI", "sMCI")):
         """

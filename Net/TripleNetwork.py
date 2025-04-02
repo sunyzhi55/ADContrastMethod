@@ -1,9 +1,7 @@
-from torch.ao.nn.quantized.functional import linear
 import torch
 from torch import nn
 from Net.basic import *
 import torch.nn.functional as F
-
 
 class MLPTableEncoder(nn.Module):
     def __init__(self, input_dim=9, output_dim=256):
@@ -39,7 +37,8 @@ class HFBSurv(nn.Module):
         # self.Radio_encoder = Radiomic_encoder(num_features=1781)
         # self.Radio_encoder.projection_head = nn.Identity()
 
-        self.Resnet = get_pretrained_Vision_Encoder() # input [B,C,128,128,128] OUT[8.400]
+        # self.Resnet = get_pretrained_vision_encoder() # input [B,C,128,128,128] OUT[8.400]
+        self.Resnet = get_no_pretrained_vision_encoder() # input [B,C,128,128,128] OUT[8.400]
         self.Table = TransformerEncoder(output_dim=256)
 
         # self.bert = AutoModel.from_pretrained("./models/Bio_ClinicalBERT")
@@ -327,17 +326,17 @@ class TriModalCrossAttention_ver2(nn.Module):
         return output1, output2, output3, global_feature
 
 class Triple_model_Fusion(nn.Module):
-    def __init__(self):
+    def __init__(self, num_classes=2):
         super(Triple_model_Fusion, self).__init__()
         self.name = 'Triple_model_CrossAttentionFusion_self_KAN'
-        self.Resnet = get_pretrained_Vision_Encoder() # input [B,C,128,128,128] OUT[8.400]
+        self.Resnet = get_pretrained_vision_encoder() # input [B,C,128,128,128] OUT[8.400]
         self.Table = TransformerEncoder(output_dim=256)
         self.fc_vis = nn.Linear(400, 256)
         self.fusion = TriModalCrossAttention_ver2(input_dim=1)
         self.SA1 = SelfAttention(16, 256, 256, hidden_dropout_prob=0.2)
         self.SA2 = SelfAttention(16, 256, 256, hidden_dropout_prob=0.2)
         self.SA3 = SelfAttention(16, 256, 256, hidden_dropout_prob=0.2)
-        self.classify_head = DenseNet(layer_num=(6, 12, 24, 16), growth_rate=16, in_channels=1, classes=2)
+        self.classify_head = DenseNet(layer_num=(6, 12, 24, 16), growth_rate=16, in_channels=1, classes=num_classes)
 
     def forward(self, mri, pet, cli):
         mri_feature = self.Resnet(mri)
@@ -370,11 +369,11 @@ class Triple_model_Fusion(nn.Module):
         return mri_feature, pet_feature, cli_feature, output
 
 class Triple_model_CoAttention_Fusion(nn.Module):
-    def __init__(self):
+    def __init__(self, num_classes=2):
         super(Triple_model_CoAttention_Fusion, self).__init__()
         self.name = 'Triple_model_CrossAttentionFusion_self_KAN'
-        self.MriExtraction = get_pretrained_Vision_Encoder() # input [B,C,96,128,96] OUT[8, 400]
-        self.PetExtraction = get_pretrained_Vision_Encoder() # input [B,C,96,128,96] OUT[8, 400]
+        self.MriExtraction = get_pretrained_vision_encoder() # input [B,C,96,128,96] OUT[8, 400]
+        self.PetExtraction = get_pretrained_vision_encoder() # input [B,C,96,128,96] OUT[8, 400]
         self.Table = TransformerEncoder(output_dim=256)
         self.fc_vis = nn.Linear(400, 256)
         self.fusion = TriModalCrossAttention_ver2(input_dim=1)
@@ -387,8 +386,8 @@ class Triple_model_CoAttention_Fusion(nn.Module):
         self.SA2 = SelfAttention(16, 256, 256, hidden_dropout_prob=0.2)
         self.SA3 = SelfAttention(16, 256, 256, hidden_dropout_prob=0.2)
 
-        # self.classify_head = DenseNet(layer_num=(6, 12, 24, 16), growth_rate=16, in_channels=1, classes=2)
-        self.classify_head = MlpKan(init_features=768, classes=2)
+        # self.classify_head = DenseNet(layer_num=(6, 12, 24, 16), growth_rate=16, in_channels=1, classes=num_classes)
+        self.classify_head = MlpKan(init_features=768, classes=num_classes)
 
     def forward(self, mri, pet, cli):
         """
@@ -471,14 +470,14 @@ class MutanLayer(nn.Module):
         x_mm = torch.relu(x_mm)
         return x_mm
 
-
+# IMF Net
 class Interactive_Multimodal_Fusion_Model(nn.Module):
-    def __init__(self):
+    def __init__(self, num_classes=2):
         super(Interactive_Multimodal_Fusion_Model, self).__init__()
         self.name = 'Interactive_Multimodal_Fusion_Model'
-        self.MriExtraction = get_no_pretrained_Vision_Encoder()  # input [B,C,96,128,96] OUT[8, 400]
+        self.MriExtraction = get_no_pretrained_vision_encoder()  # input [B,C,96,128,96] OUT[8, 400]
         # self.MriExtraction = Simple3DResNet(num_classes=400)  # input [B,C,96,128,96] OUT[8, 400]
-        self.PetExtraction = get_no_pretrained_Vision_Encoder()  # input [B,C,96,128,96] OUT[8, 400]
+        self.PetExtraction = get_no_pretrained_vision_encoder()  # input [B,C,96,128,96] OUT[8, 400]
         # self.PetExtraction = Simple3DResNet(num_classes=400)  # input [B,C,96,128,96] OUT[8, 400]
         self.Table = TransformerEncoder(output_dim=256)
         self.fc_mri = nn.Linear(400, 256)
@@ -490,7 +489,7 @@ class Interactive_Multimodal_Fusion_Model(nn.Module):
         # self.SA3 = SelfAttention(16, 256, 256, hidden_dropout_prob=0.2)
 
         # self.classify_head = DenseNet(layer_num=(6, 12, 24, 16), growth_rate=16, in_channels=1, classes=2)
-        self.classify_head = MlpKan(init_features=256, classes=2)
+        self.classify_head = MlpKan(init_features=256, classes=num_classes)
     def forward(self, mri, pet, cli):
         """
         Mri: [8, 1, 96, 128, 96]
@@ -541,3 +540,34 @@ class Interactive_Multimodal_Fusion_Model(nn.Module):
         global_output = torch.sigmoid(self.classify_head(global_feature))
 
         return [mri_output, pet_output, cli_output, global_output]
+
+# Resnet mri pet
+class ResnetMriPet(nn.Module):
+    def __init__(self, num_classes=2):
+        super(ResnetMriPet, self).__init__()
+        self.name = 'Resnet_mri_pet'
+        self.MriExtraction = get_no_pretrained_vision_encoder()  # input [B,C,96,128,96] OUT[8, 400]
+        self.PetExtraction = get_no_pretrained_vision_encoder()  # input [B,C,96,128,96] OUT[8, 400]
+        self.fc = nn.Sequential(
+            nn.Linear(800, 256),
+            nn.ReLU(),
+            nn.Linear(256, 64),
+            nn.ReLU(),
+            nn.Linear(64, num_classes)
+        )
+    def forward(self, mri_pet):
+        """
+        Mri: [8, 1, 96, 128, 96]
+        Pet: [8, 1, 96, 128, 96]
+        """
+        # 已知输入 mri_pet 为[8, 2, 96, 128, 96]，现在通过一下代码获得mri pet 为 torch.Size([8, 96, 128, 96])，但是应该为torch.Size([8, 1, 96, 128, 96])，请解决
+        mri = mri_pet[:, 0:1, :, :, :]
+        # print(f'mri shape: {mri.shape}')
+        pet = mri_pet[:, 1:2, :, :, :]
+        # print(f'pet shape: {pet.shape}')
+        mri_feature = self.MriExtraction(mri)  # [8, 400]
+        # print(f'mri feature shape: {mri_feature.shape}')
+        pet_feature = self.PetExtraction(pet)  # [8, 400]
+        # print(f'pet feature.shape:{pet_feature.shape}')
+        result = self.fc(torch.cat((mri_feature, pet_feature), dim=1))
+        return result

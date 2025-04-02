@@ -37,7 +37,7 @@ def prepare_to_train(mri_dir, pet_dir, cli_dir, csv_file, batch_size, model_inde
     # K折交叉验证
     # kf = KFold(n_splits=n_splits, shuffle=True, random_state=seed)
     skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=seed)
-    labels = [data[3] for data in dataset]  # 假设dataset[i]的第3项是label
+    labels = [data[2] for data in dataset]  # 假设dataset[i]的第3项是label
     # 存储每个fold的评估指标
     metrics = {
         'accuracy': [],
@@ -109,7 +109,6 @@ def prepare_to_train(mri_dir, pet_dir, cli_dir, csv_file, batch_size, model_inde
 
         scheduler = experiment_settings['Scheduler'](optimizer, others_params)
 
-
         if 'w1' in experiment_settings:
             criterion = experiment_settings['Loss'](w1=experiment_settings['w1'], w2=experiment_settings['w2'])
         elif experiment_settings['Name'] == 'MDL_Net':
@@ -121,7 +120,7 @@ def prepare_to_train(mri_dir, pet_dir, cli_dir, csv_file, batch_size, model_inde
 
         # 启动训练
         _run = experiment_settings['Run']
-        _run(observer, experiment_settings['Epoch'], trainDataLoader, testDataLoader, model, device,
+        _run(observer, others_params.epochs, trainDataLoader, testDataLoader, model, device,
              optimizer, criterion, scheduler, fold)
 
         # 收集评估指标
@@ -138,40 +137,6 @@ def prepare_to_train(mri_dir, pet_dir, cli_dir, csv_file, batch_size, model_inde
 if __name__ == "__main__":
     args = parse_args()
     print(args)
-    # compute the flops and params
-
-    # IMF
-    # mri_demo = torch.ones(1, 1, 96, 128, 96)
-    # pet_demo = torch.ones(1, 1, 96, 128, 96)
-    # cli_demo = torch.ones(1, 9)
-    #
-    # model_demo = models[args.model]['Model']()
-    # flops, params = profile(model_demo, inputs=(mri_demo, pet_demo, cli_demo,), verbose=False)
-    # flops, params = clever_format([flops, params], "%.3f")
-    # params_result = f'flops: {flops}, params: {params}'
-
-    # MDL
-    gm_demo = torch.ones(1, 1, 128, 128, 128)
-    wm_demo = torch.ones(1, 1, 128, 128, 128)
-    pet_demo = torch.ones(1, 1, 128, 128, 128)
-    inputs = torch.cat([gm_demo, wm_demo, pet_demo], dim=1)
-    print("inputs", inputs.shape)
-    model_demo = models[args.model]['Model'](model_depth=18, in_planes=1, num_classes=2)
-    flops, params = profile(model_demo, inputs=(inputs, ), verbose=False)
-    flops, params = clever_format([flops, params], "%.3f")
-    params_result = f'flops: {flops}, params: {params}'
-
-    # RLAD
-    # mri_demo = torch.ones(1, 1, 128, 128, 128)
-    # _, model_demo = models[args.model]['Model']()
-    # flops, params = profile(model_demo, inputs=(mri_demo, ), verbose=False)
-    # flops, params = clever_format([flops, params], "%.3f")
-    # params_result = f'flops: {flops}, params: {params}'
-
-    print(params_result)
-    with open(args.logs, 'w') as f:
-        f.write(params_result + '\n')
-
     time_start = time.time()
     best_metrics = prepare_to_train(mri_dir=args.mri_dir, pet_dir=args.pet_dir, cli_dir=args.cli_dir,
                                     csv_file=args.csv_file, batch_size=args.batch_size, model_index=args.model,

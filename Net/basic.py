@@ -1,8 +1,7 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-from timm.models.layers import DropPath, trunc_normal_
-from Net.kan import*
+from timm.layers import DropPath
+from Net.kan import *
 # from mamba_ssm import Mamba
 
 # 定义交叉洗牌函数，交叉/穿插拼接
@@ -104,9 +103,9 @@ class Bottleneck(nn.Module):
         out = self.relu(out)
 
         return out
-def get_pretrained_Vision_Encoder(**kwargs):
+def get_pretrained_vision_encoder(**kwargs):
     # model = ResNetDualInput(Bottleneck, [3, 4, 6, 3], get_inplanes())
-    model = ResNet(Bottleneck, [3, 4, 6, 3], get_inplanes())
+    model = ResNet(Bottleneck, [3, 4, 6, 3], get_inplanes(), **kwargs)
     # /mntcephfs/lab_data/wangcm/hxy/Pre-model/r3d50_K_200ep.pth
     # /home/shenxiangyuhd/PretrainedResnet/r3d50_K_200ep.pth
     # /home/wangchangmiao/syz/PretrainedResnet/r3d50_K_200ep.pth
@@ -115,22 +114,41 @@ def get_pretrained_Vision_Encoder(**kwargs):
     state_dict.pop(keys[0])
     state_dict.pop(keys[-1])
     state_dict.pop(keys[-2])
-
     model.load_state_dict(state_dict, strict=False)
-
     # for name, param in model.named_parameters():
     #     if name in state_dict.keys():
     #         param.requires_grad = False
+    return model
 
+def get_pretrained_multilayer_vision_encoder(**kwargs):
+    model = MultiLayerResNetEncoder(Bottleneck, [3, 4, 6, 3], get_inplanes(), **kwargs)
+    # /mntcephfs/lab_data/wangcm/hxy/Pre-model/r3d50_K_200ep.pth
+    # /home/shenxiangyuhd/PretrainedResnet/r3d50_K_200ep.pth
+    # /home/wangchangmiao/syz/PretrainedResnet/r3d50_K_200ep.pth
+    state_dict = torch.load(r"/home/shenxiangyuhd/PretrainedResnet/r3d50_K_200ep.pth")['state_dict']
+    keys = list(state_dict.keys())
+    state_dict.pop(keys[0])
+    state_dict.pop(keys[-1])
+    state_dict.pop(keys[-2])
+    model.load_state_dict(state_dict, strict=False)
+    # for name, param in model.named_parameters():
+    #     if name in state_dict.keys():
+    #         param.requires_grad = False
     return model
 
 # 提取特征的Resnet不是预训练的
-def get_no_pretrained_Vision_Encoder(**kwargs):
+def get_no_pretrained_vision_encoder(**kwargs):
     # model = ResNetDualInput(Bottleneck, [3, 4, 6, 3], get_inplanes())
     # model = ResNet(Bottleneck, [3, 4, 6, 3], get_inplanes())
     # resnet 18
-    model = ResNet(BasicBlock, [2, 2, 2, 2], get_inplanes())
+    model = ResNet(BasicBlock, [2, 2, 2, 2], get_inplanes(), **kwargs)
+    return model
 
+def get_no_pretrained_multilayer_vision_encoder(**kwargs):
+    # model = ResNetDualInput(Bottleneck, [3, 4, 6, 3], get_inplanes())
+    # model = ResNet(Bottleneck, [3, 4, 6, 3], get_inplanes())
+    # resnet 18
+    model = MultiLayerResNetEncoder(BasicBlock, [2, 2, 2, 2], get_inplanes(), **kwargs)
     return model
 
 class LayerNorm(nn.Module):
@@ -190,7 +208,6 @@ class TransformerStylePoolFormerBlock(nn.Module):
         x = x + self.drop_path(self.token_mixer(self.norm1(x)))
         x = x + self.drop_path(self.mlp(self.norm2(x)))
         return x
-
 
 class TransformerStylePoolFormer(nn.Module):
     def __init__(self, num_layers, dim, pool_size=3, mlp_ratio=4.0, drop=0.0, drop_path=0.0):
@@ -327,13 +344,6 @@ class SelfMamba(nn.Module):
 
         return hidden_states
 
-def M3D_ResNet_50(**kwargs):
-    """"
-        You can get a raw 3D ResNet-50
-    """
-    model = ResNet(Bottleneck, [3, 4, 6, 3], get_inplanes(), **kwargs)
-    return model
-
 class DenseLayer(torch.nn.Module):
     def __init__(self, in_channels, middle_channels=128, out_channels=32):
         super(DenseLayer, self).__init__()
@@ -348,7 +358,6 @@ class DenseLayer(torch.nn.Module):
 
     def forward(self, x):
         return torch.cat([x, self.layer(x)], dim=1)
-
 
 class DenseBlock(torch.nn.Sequential):
     def __init__(self, layer_num, growth_rate, in_channels, middele_channels=128):
@@ -451,7 +460,6 @@ class DenseNet(torch.nn.Module):
         x14 classifer torch.Size([8, 2])
         """
         return x
-
 
 class MlpKan(torch.nn.Module):
     def __init__(self, init_features=64, classes=2):
@@ -588,65 +596,156 @@ class ResNet(nn.Module):
 
         return x
 
+class MultiLayerResNetEncoder(nn.Module):
+    def __init__(self,
+                 block,
+                 layers,
+                 block_inplanes,
+                 n_input_channels=1,
+                 conv1_t_size=7,
+                 conv1_t_stride=1,
+                 no_max_pool=False,
+                 shortcut_type='B',
+                 widen_factor=1.0,
+                 n_classes=400):
+        super().__init__()
 
-class ResidualBlock(nn.Module):
-    def __init__(self, in_channels, out_channels):
-        super(ResidualBlock, self).__init__()
-        self.conv1 = nn.Conv3d(in_channels, out_channels, kernel_size=3, padding=1, stride=2)  # 使用步幅2来减小空间尺寸
-        self.conv2 = nn.Conv3d(out_channels, out_channels, kernel_size=3, padding=1)
-        self.relu = nn.ReLU()
+        block_inplanes = [int(x * widen_factor) for x in block_inplanes]
 
-        # 用于匹配维度的卷积层（如果需要）
-        self.match_dimensions = nn.Conv3d(in_channels, out_channels, kernel_size=1,
-                                          stride=2) if in_channels != out_channels else nn.Identity()
+        self.in_planes = block_inplanes[0]
+        self.no_max_pool = no_max_pool
 
-    def forward(self, x):
-        identity = self.match_dimensions(x)
-        out = self.conv1(x)
-        out = self.relu(out)
-        out = self.conv2(out)
-        out = self.relu(out)
-        out += identity  # 残差连接
+        self.conv1 = nn.Conv3d(n_input_channels,
+                               self.in_planes,
+                               kernel_size=(conv1_t_size, 7, 7),
+                               stride=(conv1_t_stride, 2, 2),
+                               padding=(conv1_t_size // 2, 3, 3),
+                               bias=False)
+        self.bn1 = nn.BatchNorm3d(self.in_planes)
+        self.relu = nn.ReLU(inplace=True)
+        self.maxpool = nn.MaxPool3d(kernel_size=3, stride=2, padding=1)
+        self.layer1 = self._make_layer(block, block_inplanes[0], layers[0],
+                                       shortcut_type)
+        self.layer2 = self._make_layer(block,
+                                       block_inplanes[1],
+                                       layers[1],
+                                       shortcut_type,
+                                       stride=2)
+        self.layer3 = self._make_layer(block,
+                                       block_inplanes[2],
+                                       layers[2],
+                                       shortcut_type,
+                                       stride=2)
+        self.layer4 = self._make_layer(block,
+                                       block_inplanes[3],
+                                       layers[3],
+                                       shortcut_type,
+                                       stride=2)
+
+        self.avgpool = nn.AdaptiveAvgPool3d((1, 1, 1))
+        self.fc = nn.Linear(block_inplanes[3] * block.expansion, n_classes)
+
+        for m in self.modules():
+            if isinstance(m, nn.Conv3d):
+                nn.init.kaiming_normal_(m.weight,
+                                        mode='fan_out',
+                                        nonlinearity='relu')
+            elif isinstance(m, nn.BatchNorm3d):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)
+
+    def _downsample_basic_block(self, x, planes, stride):
+        out = F.avg_pool3d(x, kernel_size=1, stride=stride)
+        zero_pads = torch.zeros(out.size(0), planes - out.size(1), out.size(2),
+                                out.size(3), out.size(4))
+        if isinstance(out.data, torch.cuda.FloatTensor):
+            zero_pads = zero_pads.cuda()
+
+        out = torch.cat([out.data, zero_pads], dim=1)
+
         return out
 
+    def _make_layer(self, block, planes, blocks, shortcut_type, stride=1):
+        downsample = None
+        if stride != 1 or self.in_planes != planes * block.expansion:
+            if shortcut_type == 'A':
+                from functools import partial
+                downsample = partial(self._downsample_basic_block,
+                                     planes=planes * block.expansion,
+                                     stride=stride)
+            else:
+                downsample = nn.Sequential(
+                    conv1x1x1(self.in_planes, planes * block.expansion, stride),
+                    nn.BatchNorm3d(planes * block.expansion))
 
-class Simple3DResNet(nn.Module):
-    def __init__(self, num_classes):
-        super(Simple3DResNet, self).__init__()
+        layers = []
+        layers.append(
+            block(in_planes=self.in_planes,
+                  planes=planes,
+                  stride=stride,
+                  downsample=downsample))
+        self.in_planes = planes * block.expansion
+        for i in range(1, blocks):
+            layers.append(block(self.in_planes, planes))
 
-        # 浅层特征提取（通道逐步增大，空间尺寸逐步减小）
-        self.conv1 = nn.Conv3d(1, 32, kernel_size=3, stride=2, padding=1)  # 输入维度 (batch, 1, 96, 128, 96)
-        # 残差块
-        self.res_block1 = ResidualBlock(32, 64)
-
-        # 全局池化层
-        self.global_pool = nn.AdaptiveAvgPool3d(1)  # 全局池化，空间维度变为 (batch, channels, 1, 1, 1)
-
-        # 分类层
-        self.fc = nn.Linear(64, num_classes)
+        return nn.Sequential(*layers)
 
     def forward(self, x):
-        # print("x0", x.shape)
         x = self.conv1(x)
-        # print("x1", x.shape)
-        x = torch.relu(x)
-        # print("x2", x.shape)
-        # 通过残差块
-        x = self.res_block1(x)
-        # print("x7", x.shape)
-        # 全局池化
-        x = self.global_pool(x)  # 输出形状 (batch, 64, 1, 1, 1)
-        # print("x9", x.shape)
-        x = x.view(x.size(0), -1)  # 展平为全连接层的输入
-        # print("x10", x.shape)
-        x = self.fc(x)
-        # print("x11", x.shape)
+        # print("conv1", x.shape)
+        x = self.bn1(x)
+        # print("bn1", x.shape)
+        x = self.relu(x)
+        # print("relu", x.shape)
+        if not self.no_max_pool:
+            x = self.maxpool(x)
 
-        return x
+        layer1_x = self.layer1(x)  # [8, 64, 48, 32, 24]
+        # print("layer1", layer1_x.shape)
+        layer2_x = self.layer2(layer1_x)  # [8, 128, 24, 16, 12]
+        # print("layer2", layer2_x.shape)
+        layer3_x = self.layer3(layer2_x)   # [8, 256, 12, 8, 6]
+        # print("layer3", layer3_x.shape)
+        layer4_x = self.layer4(layer3_x)   # [8, 512, 6, 4, 3]
+        # print("layer4", layer4_x.shape)
+
+        x = self.avgpool(layer4_x)
+        # print("avgpool", x.shape)
+
+        x = x.view(x.size(0), -1)
+        # print("view", x.shape)
+        x = self.fc(x)
+
+        return layer1_x, layer2_x, layer3_x, layer4_x, x
+
 if __name__ == '__main__':
-    model = Simple3DResNet(num_classes=400)
-    print(model)
-    print("model params", sum([p.numel() for p in model.parameters()]))
-    input = torch.randn(1, 1, 96, 128, 96)
-    output = model(input)
-    print(output.shape)
+    MriExtraction = get_no_pretrained_multilayer_vision_encoder() # input [B,C,128,128,128] OUT[8, 400]
+    PetExtraction = get_no_pretrained_multilayer_vision_encoder() # input [B,C,128,128,128] OUT[8, 400]
+    mri_demo = torch.randn(8, 1, 96, 128, 96)
+    pet_demo = torch.randn(8, 1, 96, 128, 96)
+    mri1, mri2, mri3, mri4, mri_extraction = MriExtraction(mri_demo)
+    pet1, pet2, pet3, pet4, pet_extraction = PetExtraction(pet_demo)
+    # mri_extraction = model(x)
+    print("mri1", mri1.shape)
+    print("mri2", mri2.shape)
+    print("mri3", mri3.shape)
+    print("mri4", mri4.shape)
+    print("mri_extraction", mri_extraction.shape)
+    print("pet1", pet1.shape)
+    print("pet2", pet2.shape)
+    print("pet3", pet3.shape)
+    print("pet4", pet4.shape)
+    print("pet_extraction", pet_extraction.shape)
+    """
+    mri1 torch.Size([8, 64, 48, 32, 24])
+    mri2 torch.Size([8, 128, 24, 16, 12])
+    mri3 torch.Size([8, 256, 12, 8, 6])
+    mri4 torch.Size([8, 512, 6, 4, 3])
+    mri_extraction torch.Size([8, 400])
+    pet1 torch.Size([8, 64, 48, 32, 24])
+    pet2 torch.Size([8, 128, 24, 16, 12])
+    pet3 torch.Size([8, 256, 12, 8, 6])
+    pet4 torch.Size([8, 512, 6, 4, 3])
+    pet_extraction torch.Size([8, 400])
+    """
+
