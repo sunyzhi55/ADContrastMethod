@@ -151,7 +151,7 @@ class RuntimeObserver:
                                f"train_specificity={self.train_metric['Specificity']}, \n"
                                f"train_balance_acc={self.train_balance_accuracy},\n "
                                f"train_f1_score={self.train_metric['F1']},\n "
-                               f"train_auc = {self.train_auc}\n")
+                               f"train_auc={self.train_auc}\n")
         eval_output_result = (f"Epoch [{e}/{epochs}]:, eval_loss={self.average_eval_loss:.3f}, \n"
                                f"eval_confusionMatrix:\n{self.eval_metric['confusionMatrix']}\n"
                                f"eval_accuracy={self.eval_metric['Accuracy']}, \n"
@@ -160,7 +160,7 @@ class RuntimeObserver:
                                f"eval_specificity={self.eval_metric['Specificity']}, \n"
                                f"eval_balance_acc={self.eval_balance_accuracy},\n "
                                f"eval_f1_score={self.eval_metric['F1']},\n "
-                               f"eval_auc = {self.eval_auc}\n\n")
+                               f"eval_auc={self.eval_auc}\n\n")
         self.log(train_output_result)
         self.log(eval_output_result)
 
@@ -197,5 +197,5 @@ class RuntimeObserver:
                        f"Best specificity : {self.best_dicts['Specificity']}, \n"
                        f"Best balance_acc : {self.best_dicts['BalanceAccuracy']},\n "
                        f"Best f1_score : {self.best_dicts['F1']},\n "
-                       f"Best AUC:{self.eval_auc}\n\n")
+                       f"Best AUC : {self.eval_auc}\n\n")
         self.log(best_result)

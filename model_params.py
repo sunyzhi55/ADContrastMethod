@@ -6,7 +6,7 @@ from RLAD_Net.taad import get_model
 from loss_function import joint_loss, loss_in_IMF
 from utils.basic import get_scheduler
 from thop import profile, clever_format
-from torchsummary import summary
+# from torchsummary import summary
 # compute the flops and params
 
 # IMF
