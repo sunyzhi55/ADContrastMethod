@@ -1,5 +1,5 @@
 from torchmetrics import Accuracy, Recall, Precision, Specificity, F1Score
-from torchmetrics import AUROC, MetricCollection, ConfusionMatrix
+from torchmetrics import AUROC, MetricCollection, ConfusionMatrix, MatthewsCorrCoef
 from torch.utils.tensorboard import SummaryWriter
 import torch
 

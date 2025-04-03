@@ -4,7 +4,7 @@ from torch.optim import lr_scheduler
 from sklearn.metrics import f1_score, recall_score, roc_auc_score, accuracy_score, precision_score
 from sklearn.metrics import confusion_matrix,matthews_corrcoef
 import matplotlib.pyplot as plt
-from Net.TripleNetwork import *
+from Net.ComparisonNet import *
 # 定义scheduler
 def get_scheduler(optimizer, opt):
     """

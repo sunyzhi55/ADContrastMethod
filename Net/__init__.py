@@ -1,3 +1,3 @@
 from Net.basic import *
-from Net.TripleNetwork import *
+from Net.ComparisonNet import *
 from Net.kan import *

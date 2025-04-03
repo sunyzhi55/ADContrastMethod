@@ -103,18 +103,30 @@ class Bottleneck(nn.Module):
         out = self.relu(out)
 
         return out
-def get_pretrained_vision_encoder(**kwargs):
+def get_pretrained_vision_encoder(pretrained_path, **kwargs):
+    pretrained_path = r"/data3/wangchangmiao/shenxy/Code/MedicalNet/pretrain/resnet_18.pth"\
+        if pretrained_path is None else pretrained_path
     # model = ResNetDualInput(Bottleneck, [3, 4, 6, 3], get_inplanes())
-    model = ResNet(Bottleneck, [3, 4, 6, 3], get_inplanes(), **kwargs)
+    # model = ResNet(Bottleneck, [3, 4, 6, 3], get_inplanes(), **kwargs)
+    model = ResNet(BasicBlock, [2, 2, 2, 2], get_inplanes(), **kwargs)
     # /mntcephfs/lab_data/wangcm/hxy/Pre-model/r3d50_K_200ep.pth
     # /home/shenxiangyuhd/PretrainedResnet/r3d50_K_200ep.pth
     # /home/wangchangmiao/syz/PretrainedResnet/r3d50_K_200ep.pth
-    state_dict = torch.load(r"/home/shenxiangyuhd/PretrainedResnet/r3d50_K_200ep.pth")['state_dict']
-    keys = list(state_dict.keys())
-    state_dict.pop(keys[0])
-    state_dict.pop(keys[-1])
-    state_dict.pop(keys[-2])
-    model.load_state_dict(state_dict, strict=False)
+    # state_dict = torch.load(r"/home/shenxiangyuhd/PretrainedResnet/r3d50_K_200ep.pth")['state_dict']
+    # keys = list(state_dict.keys())
+    # state_dict.pop(keys[0])
+    # state_dict.pop(keys[-1])
+    # state_dict.pop(keys[-2])
+    # model.load_state_dict(state_dict, strict=False)
+
+    state_dict = torch.load(pretrained_path)['state_dict']
+    # keys = list(state_dict.keys())
+    # print("keys", keys)
+    checkpoint = dict()
+    for k in state_dict.keys():
+        checkpoint[".".join(k.split(".")[1:])] = state_dict[k]
+    model.load_state_dict(checkpoint, strict=False)
+
     # for name, param in model.named_parameters():
     #     if name in state_dict.keys():
     #         param.requires_grad = False

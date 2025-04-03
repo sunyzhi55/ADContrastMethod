@@ -12,7 +12,7 @@ def run_main_1(observer, epochs, train_loader, test_loader, model, device, optim
         observer.reset()
         model.train()
         current_lr = optimizer.param_groups[0]['lr']
-        train_bar = tqdm(train_loader, desc=f"Training Epoch {epoch}, LR {current_lr:.6f}", unit="batch")
+        train_bar = tqdm(train_loader, desc=f"Training Epoch {epoch + 1}, LR {current_lr:.6f}", unit="batch")
         for ii, (mri_images, pet_image, cli_tab, label) in enumerate(train_bar):
             if torch.isnan(mri_images).any():
                 print("train: NaN detected in input mri_images")
@@ -34,7 +34,7 @@ def run_main_1(observer, epochs, train_loader, test_loader, model, device, optim
             lr_scheduler.step()
         with torch.no_grad():
             model.eval()
-            test_bar = tqdm(test_loader, desc=f"Evaluating Epoch {epoch}", unit="batch")
+            test_bar = tqdm(test_loader, desc=f"Evaluating Epoch {epoch + 1}", unit="batch")
             for i, (mri_images, pet_image, cli_tab, label) in enumerate(test_bar):
                 mri_images = mri_images.to(device)
                 pet_image = pet_image.to(device)
@@ -58,7 +58,7 @@ def run_main_for_hfbsurve(observer, epochs, train_loader, test_loader, model, de
         observer.reset()
         model.train()
         current_lr = optimizer.param_groups[0]['lr']
-        train_bar = tqdm(train_loader, desc=f"Training Epoch {epoch}, LR {current_lr:.6f}", unit="batch")
+        train_bar = tqdm(train_loader, desc=f"Training Epoch {epoch + 1}, LR {current_lr:.6f}", unit="batch")
         for ii, (mri_images, pet_image, cli_tab, label) in enumerate(train_bar):
             optimizer.zero_grad()
             mri_images = mri_images.to(device)
@@ -77,7 +77,7 @@ def run_main_for_hfbsurve(observer, epochs, train_loader, test_loader, model, de
             lr_scheduler.step()
         with torch.no_grad():
             model.eval()
-            test_bar = tqdm(test_loader, desc=f"Evaluating Epoch {epoch}", unit="batch")
+            test_bar = tqdm(test_loader, desc=f"Evaluating Epoch {epoch + 1}", unit="batch")
             for i, (mri_images, pet_image, cli_tab, label) in enumerate(test_bar):
                 mri_images = mri_images.to(device)
                 pet_image = pet_image.to(device)
@@ -101,7 +101,7 @@ def run_main_for_IMF(observer, epochs, train_loader, test_loader, model, device,
         observer.reset()
         model.train()
         current_lr = optimizer.param_groups[0]['lr']
-        train_bar = tqdm(train_loader, desc=f"Training Epoch {epoch}, LR {current_lr:.6f}", unit="batch")
+        train_bar = tqdm(train_loader, desc=f"Training Epoch {epoch + 1}, LR {current_lr:.6f}", unit="batch")
         for ii, (mri_images, pet_image, cli_tab, label, label_2d) in enumerate(train_bar):
             if torch.isnan(mri_images).any():
                 print("train: NaN detected in input mri_images")
@@ -125,7 +125,7 @@ def run_main_for_IMF(observer, epochs, train_loader, test_loader, model, device,
             lr_scheduler.step()
         with torch.no_grad():
             model.eval()
-            test_bar = tqdm(test_loader, desc=f"Evaluating Epoch {epoch}", unit="batch")
+            test_bar = tqdm(test_loader, desc=f"Evaluating Epoch {epoch + 1}", unit="batch")
             for i, (mri_images, pet_image, cli_tab, label, label_2d) in enumerate(test_bar):
                 mri_images = mri_images.to(device)
                 pet_image = pet_image.to(device)
@@ -152,7 +152,7 @@ def run_main_for_MDL(observer, epochs, train_loader, test_loader, model, device,
         model.train()
         current_lr = optimizer.param_groups[0]['lr']
 
-        train_bar = tqdm(train_loader, desc=f"Training Epoch {epoch}, LR {current_lr:.6f}", unit="batch")
+        train_bar = tqdm(train_loader, desc=f"Training Epoch {epoch + 1}, LR {current_lr:.6f}", unit="batch")
 
         for ii, (gm_img_torch, wm_img_torch, pet_img_torch, label) in enumerate(train_bar):
             if torch.isnan(gm_img_torch).any():
@@ -179,7 +179,7 @@ def run_main_for_MDL(observer, epochs, train_loader, test_loader, model, device,
             lr_scheduler.step()
         with torch.no_grad():
             model.eval()
-            test_bar = tqdm(test_loader, desc=f"Evaluating Epoch {epoch}", unit="batch")
+            test_bar = tqdm(test_loader, desc=f"Evaluating Epoch {epoch + 1}", unit="batch")
             for i, (gm_img_torch, wm_img_torch, pet_img_torch, label) in enumerate(test_bar):
                 gm_img_torch = gm_img_torch.to(device)
                 wm_img_torch = wm_img_torch.to(device)
@@ -205,7 +205,7 @@ def run_main_for_RLAD(observer, epochs, train_loader, test_loader, model, device
         observer.reset()
         model.train()
         current_lr = optimizer.param_groups[0]['lr']
-        train_bar = tqdm(train_loader, desc=f"Training Epoch {epoch}, LR {current_lr:.6f}", unit="batch")
+        train_bar = tqdm(train_loader, desc=f"Training Epoch {epoch + 1}, LR {current_lr:.6f}", unit="batch")
         for ii, (mri_images, label) in enumerate(train_bar):
             if torch.isnan(mri_images).any():
                 print("train: NaN detected in input mri_images")
@@ -224,7 +224,7 @@ def run_main_for_RLAD(observer, epochs, train_loader, test_loader, model, device
             lr_scheduler.step()
         with torch.no_grad():
             model.eval()
-            test_bar = tqdm(test_loader, desc=f"Evaluating Epoch {epoch}", unit="batch")
+            test_bar = tqdm(test_loader, desc=f"Evaluating Epoch {epoch + 1}", unit="batch")
             for i, (mri_images, label) in enumerate(test_bar):
                 mri_images = mri_images.to(device)
                 label = label.to(device)
@@ -247,7 +247,7 @@ def run_main_for_resnet(observer, epochs, train_loader, test_loader, model, devi
         observer.reset()
         model.train()
         current_lr = optimizer.param_groups[0]['lr']
-        train_bar = tqdm(train_loader, desc=f"Training Epoch {epoch}, LR {current_lr:.6f}", unit="batch")
+        train_bar = tqdm(train_loader, desc=f"Training Epoch {epoch + 1}, LR {current_lr:.6f}", unit="batch")
         for ii, (mri_images, pet_image, label) in enumerate(train_bar):
             if torch.isnan(mri_images).any():
                 print("train: NaN detected in input mri_images")
@@ -270,7 +270,7 @@ def run_main_for_resnet(observer, epochs, train_loader, test_loader, model, devi
             lr_scheduler.step()
         with torch.no_grad():
             model.eval()
-            test_bar = tqdm(test_loader, desc=f"Evaluating Epoch {epoch}", unit="batch")
+            test_bar = tqdm(test_loader, desc=f"Evaluating Epoch {epoch + 1}", unit="batch")
             for i, (mri_images, pet_image, label) in enumerate(test_bar):
                 mri_images = mri_images.to(device)
                 pet_image = pet_image.to(device)

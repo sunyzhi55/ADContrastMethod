@@ -1,7 +1,7 @@
 import torch
 from torch.utils.data import DataLoader
-from Dataset import MriPetDataset, MriPetDatasetWithTowLabel
-from Net.TripleNetwork import HFBSurv, Interactive_Multimodal_Fusion_Model
+from Dataset import MriPetDataset, MriPetCliDatasetWithTowLabel
+from Net.ComparisonNet import HFBSurv, Interactive_Multimodal_Fusion_Model
 import numpy as np
 from PIL import Image  # 处理高质量图片
 from sklearn.metrics import roc_curve, auc
@@ -80,4 +80,3 @@ if __name__ == '__main__':
     plt.legend(loc="lower right")
     # plt.show()
     plt.savefig('roc_curve.png')
-

@@ -329,7 +329,7 @@ class Triple_model_Fusion(nn.Module):
     def __init__(self, num_classes=2):
         super(Triple_model_Fusion, self).__init__()
         self.name = 'Triple_model_CrossAttentionFusion_self_KAN'
-        self.Resnet = get_pretrained_vision_encoder() # input [B,C,128,128,128] OUT[8.400]
+        self.Resnet = get_no_pretrained_vision_encoder() # input [B,C,128,128,128] OUT[8.400]
         self.Table = TransformerEncoder(output_dim=256)
         self.fc_vis = nn.Linear(400, 256)
         self.fusion = TriModalCrossAttention_ver2(input_dim=1)
@@ -372,8 +372,8 @@ class Triple_model_CoAttention_Fusion(nn.Module):
     def __init__(self, num_classes=2):
         super(Triple_model_CoAttention_Fusion, self).__init__()
         self.name = 'Triple_model_CrossAttentionFusion_self_KAN'
-        self.MriExtraction = get_pretrained_vision_encoder() # input [B,C,96,128,96] OUT[8, 400]
-        self.PetExtraction = get_pretrained_vision_encoder() # input [B,C,96,128,96] OUT[8, 400]
+        self.MriExtraction = get_no_pretrained_vision_encoder() # input [B,C,96,128,96] OUT[8, 400]
+        self.PetExtraction = get_no_pretrained_vision_encoder() # input [B,C,96,128,96] OUT[8, 400]
         self.Table = TransformerEncoder(output_dim=256)
         self.fc_vis = nn.Linear(400, 256)
         self.fusion = TriModalCrossAttention_ver2(input_dim=1)
@@ -543,11 +543,11 @@ class Interactive_Multimodal_Fusion_Model(nn.Module):
 
 # Resnet mri pet
 class ResnetMriPet(nn.Module):
-    def __init__(self, num_classes=2):
+    def __init__(self, num_classes=2, pretrained_path=None):
         super(ResnetMriPet, self).__init__()
         self.name = 'Resnet_mri_pet'
-        self.MriExtraction = get_no_pretrained_vision_encoder()  # input [B,C,96,128,96] OUT[8, 400]
-        self.PetExtraction = get_no_pretrained_vision_encoder()  # input [B,C,96,128,96] OUT[8, 400]
+        self.MriExtraction = get_pretrained_vision_encoder(pretrained_path=pretrained_path)  # input [B,C,96,128,96] OUT[8, 400]
+        self.PetExtraction = get_pretrained_vision_encoder(pretrained_path=pretrained_path)  # input [B,C,96,128,96] OUT[8, 400]
         self.fc = nn.Sequential(
             nn.Linear(800, 256),
             nn.ReLU(),
