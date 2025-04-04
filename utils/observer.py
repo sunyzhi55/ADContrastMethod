@@ -62,6 +62,7 @@ class RuntimeObserver:
             'Recall': Recall(num_classes=2, task='binary').to(device),
             'Specificity': Specificity(num_classes=2, task='binary').to(device),
             'F1': F1Score(num_classes=2, task='binary').to(device),
+            # "MatthewsCorrCoef": MatthewsCorrCoef(num_classes=2, task='binary').to(device),
             # 'AuRoc': AUROC(num_classes=2, task='binary'),
             # 'BalanceAccuracy': None,
         }).to(device)
