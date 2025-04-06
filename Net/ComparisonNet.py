@@ -406,7 +406,7 @@ class Triple_model_CoAttention_Fusion(nn.Module):
 
         mri_feature = self.fc_vis(mri_feature)
         pet_feature = self.fc_vis(pet_feature)
-        cli_feature = self.fc_cli(cli_feature)
+        # cli_feature = self.fc_cli(cli_feature)
 
         mri_feature = torch.unsqueeze(mri_feature, dim=1)
         pet_feature = torch.unsqueeze(pet_feature, dim=1)
