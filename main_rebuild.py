@@ -31,7 +31,7 @@ def prepare_to_train(mri_dir, pet_dir, cli_dir, csv_file, batch_size, model_inde
     #     dataset = MriPetDataset(mri_dir, pet_dir, cli_dir, csv_file, valid_group=("pMCI", "sMCI"))
     dataset = experiment_settings['dataset'](mri_dir, pet_dir, cli_dir, csv_file,
                                              resize_shape=experiment_settings['shape'],
-                                             valid_group=("pMCI", "sMCI"))
+                                             valid_group=experiment_settings['task'])
     torch.manual_seed(seed)
 
     # K折交叉验证
