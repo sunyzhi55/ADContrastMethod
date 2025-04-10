@@ -103,7 +103,43 @@ models = {
 'Resnet':{
         'Name': 'ResnetMriPet',
         # generate_model(model_depth=18, in_planes=1, num_classes=2)
+        'Model': ResnetMriPet,
+        'dataset': MriPetDataset,
+        'shape': (96, 128, 96),
+        'Loss': CrossEntropyLoss,
+        'Optimizer': Adam,
+        'Lr': 0.001,
+        'Run': run_main_for_resnet,
+        'Scheduler': get_scheduler,
+},
+'Poolformer':{
+        'Name': 'ResnetMriPet',
+        # generate_model(model_depth=18, in_planes=1, num_classes=2)
         'Model': MetaFormerMriPet,
+        'dataset': MriPetDataset,
+        'shape': (96, 128, 96),
+        'Loss': CrossEntropyLoss,
+        'Optimizer': Adam,
+        'Lr': 0.001,
+        'Run': run_main_for_resnet,
+        'Scheduler': get_scheduler,
+},
+'EfficientNet':{
+        'Name': 'ResnetMriPet',
+        # generate_model(model_depth=18, in_planes=1, num_classes=2)
+        'Model': EfficientNetMriPet,
+        'dataset': MriPetDataset,
+        'shape': (96, 128, 96),
+        'Loss': CrossEntropyLoss,
+        'Optimizer': Adam,
+        'Lr': 0.001,
+        'Run': run_main_for_resnet,
+        'Scheduler': get_scheduler,
+},
+'VisionTransformer':{
+        'Name': 'ResnetMriPet',
+        # generate_model(model_depth=18, in_planes=1, num_classes=2)
+        'Model': ViT,
         'dataset': MriPetDataset,
         'shape': (96, 128, 96),
         'Loss': CrossEntropyLoss,

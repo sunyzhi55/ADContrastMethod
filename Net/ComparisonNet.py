@@ -549,8 +549,10 @@ class ResnetMriPet(nn.Module):
     def __init__(self, num_classes=2, pretrained_path=None):
         super(ResnetMriPet, self).__init__()
         self.name = 'Resnet_mri_pet'
-        self.MriExtraction = get_pretrained_vision_encoder(pretrained_path=pretrained_path)  # input [B,C,96,128,96] OUT[8, 400]
-        self.PetExtraction = get_pretrained_vision_encoder(pretrained_path=pretrained_path)  # input [B,C,96,128,96] OUT[8, 400]
+        # self.MriExtraction = get_pretrained_vision_encoder(pretrained_path=pretrained_path)  # input [B,C,96,128,96] OUT[8, 400]
+        # self.PetExtraction = get_pretrained_vision_encoder(pretrained_path=pretrained_path)  # input [B,C,96,128,96] OUT[8, 400]
+        self.MriExtraction = get_no_pretrained_vision_encoder()  # input [B,C,96,128,96] OUT[8, 400]
+        self.PetExtraction = get_no_pretrained_vision_encoder()  # input [B,C,96,128,96] OUT[8, 400]
         self.fc = nn.Sequential(
             nn.Linear(800, 256),
             nn.ReLU(),
@@ -611,29 +613,29 @@ class EfficientNetMriPet(nn.Module):
     def __init__(self, num_classes=2, pretrained_path=None):
         super(EfficientNetMriPet, self).__init__()
         self.name = 'EfficientNet_mri_pet'
-        self.MriExtraction = EfficientNet3D.from_name("efficientnet-b0", override_params={'num_classes': 2},
+        self.MriExtraction = EfficientNet3D.from_name("efficientnet-b0", override_params={'num_classes': 500},
                                                       in_channels=1)
-        self.PetExtraction = EfficientNet3D.from_name("efficientnet-b0", override_params={'num_classes': 2},
+        self.PetExtraction = EfficientNet3D.from_name("efficientnet-b0", override_params={'num_classes': 500},
                                                       in_channels=1)
         pretrained_path = r'/data3/wangchangmiao/shenxy/PretrainedModel/kaggle_efficientNet3D/T1w-e6-loss0.691-auc0.581.pth'
         # pretrained_path = None
 
-        if pretrained_path:
-            state_dict = torch.load(pretrained_path, weights_only=True)['model_state_dict']
-            # print(state_dict)
-            keys = list(state_dict.keys())
-            state_dict.pop(keys[-1])
-            state_dict.pop(keys[-2])
-            # model.load_state_dict(state_dict, strict=False)
-            self.MriExtraction.load_state_dict(state_dict, strict=False)
-            self.PetExtraction.load_state_dict(state_dict, strict=False)
+        # if pretrained_path:
+        #     state_dict = torch.load(pretrained_path, weights_only=True)['model_state_dict']
+        #     # print(state_dict)
+        #     keys = list(state_dict.keys())
+        #     state_dict.pop(keys[-1])
+        #     state_dict.pop(keys[-2])
+        #     # model.load_state_dict(state_dict, strict=False)
+        #     self.MriExtraction.load_state_dict(state_dict, strict=False)
+        #     self.PetExtraction.load_state_dict(state_dict, strict=False)
 
         self.fc = nn.Sequential(
-            nn.Linear(2 * 2, num_classes),
-            # nn.ReLU(),
-            # nn.Linear(256, 64),
-            # nn.ReLU(),
-            # nn.Linear(64, num_classes)
+            nn.Linear(2 * 500, 256),
+            nn.ReLU(),
+            nn.Linear(256, 64),
+            nn.ReLU(),
+            nn.Linear(64, num_classes)
         )
     def forward(self, mri_pet):
         """
