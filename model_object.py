@@ -121,7 +121,7 @@ models = {
         'Scheduler': get_scheduler,
 },
 'Poolformer':{
-        'Name': 'ResnetMriPet',
+        'Name': 'MetaFormerMriPet',
         # generate_model(model_depth=18, in_planes=1, num_classes=2)
         'Model': MetaFormerMriPet,
         'dataset': MriPetDataset,
@@ -134,7 +134,7 @@ models = {
         'Scheduler': get_scheduler,
 },
 'EfficientNet':{
-        'Name': 'ResnetMriPet',
+        'Name': 'EfficientNetMriPet',
         # generate_model(model_depth=18, in_planes=1, num_classes=2)
         'Model': EfficientNetMriPet,
         'dataset': MriPetDataset,
@@ -147,9 +147,9 @@ models = {
         'Scheduler': get_scheduler,
 },
 'VisionTransformer':{
-        'Name': 'ResnetMriPet',
+        'Name': 'VisionTransformer',
         # generate_model(model_depth=18, in_planes=1, num_classes=2)
-        'Model': ViT,
+        'Model': ViTMriPet,
         'dataset': MriPetDataset,
         'shape': (96, 128, 96),
         'task': ("pMCI", "sMCI"),
