@@ -78,6 +78,8 @@ def prepare_to_train(mri_dir, pet_dir, cli_dir, csv_file, batch_size, model_inde
             model = _model(model_depth=18, in_planes=1, num_classes=2)
         elif model_index == 'RLAD':
             _, model = _model()
+        elif model_index == 'HyperFusionNet':
+            model = _model(train_loader=trainDataLoader, GPU=True,)
         else:
             print(f"The name of model will run {_model}")
             model = _model()

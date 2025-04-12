@@ -581,16 +581,16 @@ class ViTMriPet(nn.Module):
     def __init__(self, num_classes=2, pretrained_path=None):
         super(ViTMriPet, self).__init__()
         self.name = 'ViT_mri_pet'
-        self.MriExtraction = ViT(image_size=[96, 128, 96], patch_size=16, num_classes=2, dim=128, depth=2,
+        self.MriExtraction = ViT(image_size=[96, 128, 96], patch_size=16, num_classes=500, dim=128, depth=2,
                                  heads=16, mlp_dim=512, channels=1, dropout=0.1, emb_dropout=0.1)
-        self.PetExtraction = ViT(image_size=[96, 128, 96], patch_size=16, num_classes=2, dim=128, depth=2,
+        self.PetExtraction = ViT(image_size=[96, 128, 96], patch_size=16, num_classes=500, dim=128, depth=2,
                                  heads=16, mlp_dim=512, channels=1, dropout=0.1, emb_dropout=0.1)
         self.fc = nn.Sequential(
-            nn.Linear(2 * 2, num_classes),
-            # nn.ReLU(),
-            # nn.Linear(256, 64),
-            # nn.ReLU(),
-            # nn.Linear(64, num_classes)
+            nn.Linear(2 * 500, 256),
+            nn.ReLU(),
+            nn.Linear(256, 64),
+            nn.ReLU(),
+            nn.Linear(64, num_classes)
         )
     def forward(self, mri_pet):
         """
@@ -658,14 +658,14 @@ class MetaFormerMriPet(nn.Module):
     def __init__(self, num_classes=2, pretrained_path=None):
         super(MetaFormerMriPet, self).__init__()
         self.name = 'MetaFormer_mri_pet'
-        self.MriExtraction = poolformerv2_3d_s12(num_classes=2)
-        self.PetExtraction = poolformerv2_3d_s12(num_classes=2)
+        self.MriExtraction = poolformerv2_3d_s12(num_classes=500)
+        self.PetExtraction = poolformerv2_3d_s12(num_classes=500)
         self.fc = nn.Sequential(
-            nn.Linear(2 * 2, num_classes),
-            # nn.ReLU(),
-            # nn.Linear(256, 64),
-            # nn.ReLU(),
-            # nn.Linear(64, num_classes)
+            nn.Linear(2 * 500, 256),
+            nn.ReLU(),
+            nn.Linear(256, 64),
+            nn.ReLU(),
+            nn.Linear(64, num_classes)
         )
     def forward(self, mri_pet):
         """

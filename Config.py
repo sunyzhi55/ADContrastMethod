@@ -9,7 +9,7 @@ def parse_args():
     parser.add_argument('--name', type=str, default='experiment_name',
                         help='name of the experiment. It decides where to store samples and models')
     parser.add_argument('--cli_dir', type=str, default='./csv/ADNI_Clinical.csv', help='pet input path')
-    parser.add_argument('----model', type=str, default='Resnet')
+    parser.add_argument('----model', type=str, default='HyperFusionNet')
     parser.add_argument("--seed", default=42, type=int, help="seed given by LinkStart.py on cross Val")
 
     parser.add_argument("--n_splits", default=5, type=int, help="0~4")
@@ -20,9 +20,9 @@ def parse_args():
     # /home/publicdata/ADNI/ADNI1
     # /mntcephfs/med_dataset/huxiangyang/ADNI/freesurfer/ADNI1
     # /data3/wangchangmiao/ADNI/freesurfer/ADNI1
-    parser.add_argument('--mri_dir', type=str, default='/data3/wangchangmiao/shenxy/ADNI/ADNI1/MRI', help='mri input path')
-    parser.add_argument('--pet_dir', type=str, default='/data3/wangchangmiao/shenxy/ADNI/ADNI1/PET', help='pet input path')
-    parser.add_argument('--csv_file', type=str, default='./csv/ADNI1_match.csv', help='label input path')
+    parser.add_argument('--mri_dir', type=str, default='/data4/wangchangmiao/shenxy/ADNI/ADNI2/MRI', help='mri input path')
+    parser.add_argument('--pet_dir', type=str, default='/data4/wangchangmiao/shenxy/ADNI/ADNI2/PET', help='pet input path')
+    parser.add_argument('--csv_file', type=str, default='./csv/ADNI2_match.csv', help='label input path')
 
     parser.add_argument('--best_result_model_path', type=str,default='best_result.pth', help='the best result model path')
     parser.add_argument('--device', type=str, default='cuda:2', help='device to run')

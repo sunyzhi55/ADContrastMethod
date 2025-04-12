@@ -3,6 +3,7 @@ from torch.optim import *
 from Net import *
 from MDL_Net.MDL_Net import generate_model
 from RLAD_Net.taad import get_model
+from HyperFusionNet.HyperFusion_AD_model import HyperFusion_AD
 from utils.api import *
 from loss_function import joint_loss, loss_in_IMF
 from utils.basic import get_scheduler
@@ -157,6 +158,19 @@ models = {
         'Optimizer': Adam,
         'Lr': 0.001,
         'Run': run_main_for_resnet,
+        'Scheduler': get_scheduler,
+},
+'HyperFusionNet':{
+        'Name': 'HyperFusionNet',
+        # generate_model(model_depth=18, in_planes=1, num_classes=2)
+        'Model': HyperFusion_AD,
+        'dataset': MriCliDataset,
+        'shape': (96, 128, 96),
+        'task': ("pMCI", "sMCI"),
+        'Loss': CrossEntropyLoss,
+        'Optimizer': Adam,
+        'Lr': 0.0001,
+        'Run': run_main_for_hyper_fusion,
         'Scheduler': get_scheduler,
 },
 'RLAD':{

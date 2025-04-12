@@ -5,6 +5,7 @@ from MDL_Net.MDL_Net import generate_model
 from RLAD_Net.taad import get_model
 from loss_function import joint_loss, loss_in_IMF
 from utils.basic import get_scheduler
+from HyperFusionNet.HyperFusion_AD_model import HyperFusion_AD
 from thop import profile, clever_format
 # from torchsummary import summary
 # compute the flops and params
@@ -67,13 +68,57 @@ flops, params = profile(model_demo, inputs=(inputs,), verbose=False)
 flops, params = clever_format([flops, params], "%.3f")
 params_result = f'flops: {flops}, params: {params}'
 print(f"Resnet:{params_result}")
+
+# Vision Transformer
+mri_demo = torch.ones(1, 1, 96, 128, 96)
+pet_demo = torch.ones(1, 1, 96, 128, 96)
+model_demo = ViTMriPet()
+model_demo.eval()
+inputs = torch.cat([mri_demo, pet_demo], dim=1)
+flops, params = profile(model_demo, inputs=(inputs,), verbose=False)
+flops, params = clever_format([flops, params], "%.3f")
+params_result = f'flops: {flops}, params: {params}'
+print(f"ViT:{params_result}")
+
+# EfficientNet
+mri_demo = torch.ones(1, 1, 96, 128, 96)
+pet_demo = torch.ones(1, 1, 96, 128, 96)
+model_demo = EfficientNetMriPet()
+model_demo.eval()
+inputs = torch.cat([mri_demo, pet_demo], dim=1)
+flops, params = profile(model_demo, inputs=(inputs,), verbose=False)
+flops, params = clever_format([flops, params], "%.3f")
+params_result = f'flops: {flops}, params: {params}'
+print(f"EfficientNet:{params_result}")
+
+# Poolformer
+mri_demo = torch.ones(1, 1, 96, 128, 96)
+pet_demo = torch.ones(1, 1, 96, 128, 96)
+model_demo = MetaFormerMriPet()
+model_demo.eval()
+inputs = torch.cat([mri_demo, pet_demo], dim=1)
+flops, params = profile(model_demo, inputs=(inputs,), verbose=False)
+flops, params = clever_format([flops, params], "%.3f")
+params_result = f'flops: {flops}, params: {params}'
+print(f"Poolformer:{params_result}")
+
+
+# # HyperFusionNet
+# mri_demo = torch.ones(1, 1, 96, 128, 96)
+# cli_demo = torch.ones(1, 9)
+# model_demo = HyperFusion_AD()
+# flops, params = profile(model_demo, inputs=((mri_demo, cli_demo),), verbose=False)
+# flops, params = clever_format([flops, params], "%.3f")
+# params_result = f'flops: {flops}, params: {params}'
+# print(f"HyperFusionNet:{params_result}")
 """
 IMF:flops: 70.925G, params: 67.843M
 MDL:flops: 9.353G, params: 2.827M
 RLAD:flops: 260.882G, params: 30.624M
 result torch.Size([2, 2])
 HFBSurv:flops: 141.849G, params: 34.123M
-mri shape: torch.Size([1, 1, 96, 128, 96])
-pet shape: torch.Size([1, 1, 96, 128, 96])
 Resnet:flops: 70.924G, params: 66.952M
+ViT:flops: 5.774G, params: 20.069M
+EfficientNet:flops: 75.563M, params: 1.638M
+Poolformer:flops: 9.548G, params: 30.426M
 """

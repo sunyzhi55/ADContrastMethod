@@ -286,3 +286,50 @@ def run_main_for_resnet(observer, epochs, train_loader, test_loader, model, devi
             print("Early stopping")
             break
     observer.finish(fold)
+
+
+def run_main_for_hyper_fusion(observer, epochs, train_loader, test_loader, model, device, optimizer, criterion, lr_scheduler, fold):
+    model = model.to(device)
+    print("start training")
+    for epoch in range(epochs):
+        print(f"Epoch: {epoch + 1}/{epochs}")
+        observer.reset()
+        model.train()
+        current_lr = optimizer.param_groups[0]['lr']
+        train_bar = tqdm(train_loader, desc=f"Training Epoch {epoch + 1}, LR {current_lr:.6f}", unit="batch")
+        for ii, (mri_images, cli_tab, label) in enumerate(train_bar):
+            if torch.isnan(mri_images).any():
+                print("train: NaN detected in input mri_images")
+            mri_images = mri_images.to(device)
+            label = label.to(device)
+            cli_tab = cli_tab.to(device)
+            optimizer.zero_grad()
+            input_content = (mri_images, cli_tab)
+            outputs_logit = model(input_content)
+            loss = criterion(outputs_logit, label)
+            prob = torch.softmax(outputs_logit, dim=1)
+            _, predictions = torch.max(prob, dim=1)
+            prob_positive = prob[:, 1]
+            loss.backward()
+            optimizer.step()
+            observer.train_update(loss, predictions, prob_positive, label)
+        if lr_scheduler:
+            lr_scheduler.step()
+        with torch.no_grad():
+            model.eval()
+            test_bar = tqdm(test_loader, desc=f"Evaluating Epoch {epoch + 1}", unit="batch")
+            for i, (mri_images, cli_tab, label) in enumerate(test_bar):
+                mri_images = mri_images.to(device)
+                label = label.to(device)
+                cli_tab = cli_tab.to(device)
+                input_content = (mri_images, cli_tab)
+                outputs_logit = model(input_content)
+                loss = criterion(outputs_logit, label)
+                prob = torch.softmax(outputs_logit, dim=1)
+                _, predictions = torch.max(prob, dim=1)
+                prob_positive = prob[:, 1]
+                observer.eval_update(loss, predictions, prob_positive, label)
+        if observer.execute(epoch + 1, epochs, len(train_loader.dataset),len(test_loader.dataset), fold, model=model):
+            print("Early stopping")
+            break
+    observer.finish(fold)
