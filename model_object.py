@@ -169,7 +169,7 @@ models = {
         'task': ("pMCI", "sMCI"),
         'Loss': CrossEntropyLoss,
         'Optimizer': Adam,
-        'Lr': 0.0001,
+        'Lr': 0.001,
         'Run': run_main_for_hyper_fusion,
         'Scheduler': get_scheduler,
 },
