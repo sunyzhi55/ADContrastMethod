@@ -1,4 +1,4 @@
-from torch.utils.data import DataLoader, Dataset, Subset
+from torch.utils.data import Dataset, Subset
 import time
 # import os
 # os.environ['CUDA_VISIBLE_DEVICES'] = '2, 3'
@@ -6,29 +6,50 @@ from datetime import datetime
 from pathlib import Path
 from sklearn.model_selection import StratifiedKFold
 import torch.utils.data
-from model_object_ad_mci_cn import models
-# from model_object import models
+from model_object_monai import models
 from Config import parse_args
 from utils.observer import RuntimeObserver
 from utils.api import *
-#99480885
+import monai
+from monai.data import DataLoader
+from monai.transforms import (
+    Compose, LoadImage, EnsureChannelFirst,
+    ScaleIntensity, RandFlip, RandAffine,
+    RandGaussianNoise, RandGaussianSmooth,
+    RandGibbsNoise, EnsureType, ToTensor
+)
+
+
+# 99480885
 
 class TransformedSubset(Dataset):
     def __init__(self, subset, transform=None):
         self.subset = subset
         self.transform = transform
+        # self.only_tabular = False
 
     def __getitem__(self, index):
         sample = self.subset[index]
+
         if self.transform:
-            # 可选地对 mri、pet、tabular 进行变换
-            sample['mri'] = self.transform(sample['mri'])
-            # 如果你也有 pet 的 transform，可以按需处理
-            sample['pet'] = self.transform(sample['pet'])
+            # 对MRI和PET分别应用转换
+            if 'mri' in sample:
+                sample['mri'] = self.transform(sample['mri'])
+                sample['mri'] = sample['mri'].as_tensor()
+            if 'pet' in sample:
+                sample['pet'] = self.transform(sample['pet'])
+                sample['pet'] = sample['pet'].as_tensor()
+            if 'gm' in sample:
+                sample['gm'] = self.transform(sample['gm'])
+                sample['gm'] = sample['gm'].as_tensor()
+            if 'wm' in sample:
+                sample['wm'] = self.transform(sample['wm'])
+                sample['wm'] = sample['wm'].as_tensor()
         return sample
 
     def __len__(self):
         return len(self.subset)
+
 
 def prepare_to_train(mri_dir, pet_dir, cli_dir, csv_file, batch_size, model_index,
                      seed, device, data_parallel, n_splits, others_params):
@@ -50,19 +71,40 @@ def prepare_to_train(mri_dir, pet_dir, cli_dir, csv_file, batch_size, model_inde
     dataset = experiment_settings['dataset'](mri_dir, pet_dir, cli_dir, csv_file,
                                              resize_shape=experiment_settings['shape'],
                                              valid_group=experiment_settings['task'])
+
+    total_transform = {
+        'train_transforms': Compose([
+            RandFlip(prob=0.5, spatial_axis=0),  # 左右翻转
+            RandAffine(
+                prob=0.8,
+                rotate_range=(0, 0, torch.pi / 18),  # 旋转
+                scale_range=(0.1, 0.1, 0.1),  # 缩放
+                translate_range=(5, 5, 5),  # 平移
+                padding_mode='zeros'
+            ),
+            RandGaussianNoise(prob=0.5, std=0.05),  # 高斯噪声
+            RandGaussianSmooth(prob=0.5, sigma_x=(0.5, 1.0)),  # 高斯模糊
+            EnsureType()  # 确保输出为tensor
+        ]),
+        'validation_transforms': Compose([
+            EnsureType()  # 验证集只需要确保类型
+        ]),
+    }
+
     torch.manual_seed(seed)
 
     # K折交叉验证
     # kf = KFold(n_splits=n_splits, shuffle=True, random_state=seed)
     skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=seed)
-    labels = [data.get("label") for data in dataset]  # 假设dataset[i]的第3项是label
+    labels = [data["label"] for data in dataset]  # 假设dataset[i]的第3项是label
     num_classes = len(experiment_settings['task'])
+
     # 存储每个fold的评估指标
     metrics = {
         'accuracy': [],
         'precision': [],
         'recall': [],
-        'balanceAccuracy':[],
+        'balanceAccuracy': [],
         'Specificity': [],
         'auc': [],
         'f1': [],
@@ -76,18 +118,20 @@ def prepare_to_train(mri_dir, pet_dir, cli_dir, csv_file, batch_size, model_inde
         observer = RuntimeObserver(log_dir=target_dir, device=device, num_classes=num_classes,
                                    task="multiclass" if num_classes > 2 else "binary",
                                    name=experiment_settings['Name'], seed=seed)
-        observer.log(f'Fold {fold}/{5}')
-        train_sampler = torch.utils.data.SubsetRandomSampler(train_index)
-        val_sampler = torch.utils.data.SubsetRandomSampler(test_index)
-        # train_subset = Subset(dataset, train_idx)
-        # val_subset = Subset(dataset, val_idx)
-        # train_dataset = TransformedSubset(train_subset, transform=total_transform['train_transforms'])
-        # val_dataset = TransformedSubset(val_subset, transform=total_transform['validation_transforms'])
+        observer.log(f'Fold {fold}/{n_splits}')
+        # train_sampler = torch.utils.data.SubsetRandomSampler(train_index)
+        # val_sampler = torch.utils.data.SubsetRandomSampler(test_index)
+        train_subset = Subset(dataset, train_index)
+        val_subset = Subset(dataset, test_index)
+        train_dataset = TransformedSubset(train_subset, transform=total_transform['train_transforms'])
+        val_dataset = TransformedSubset(val_subset, transform=total_transform['validation_transforms'])
 
-        trainDataLoader = torch.utils.data.DataLoader(dataset, sampler=train_sampler, batch_size=batch_size,
-                                                      num_workers=4, drop_last=True)
-        testDataLoader = torch.utils.data.DataLoader(dataset, sampler=val_sampler, batch_size=batch_size,
-                                                     num_workers=4, drop_last=True)
+        trainDataLoader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True,
+                                     num_workers=4, drop_last=True, pin_memory=torch.cuda.is_available())
+        testDataLoader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False,
+                                    num_workers=4, drop_last=True, pin_memory=torch.cuda.is_available())
+        # trainDataLoader = tio.SubjectsLoader(train_dataset, batch_size=batch_size, shuffle=True)
+        # testDataLoader = tio.SubjectsLoader(val_dataset, batch_size=batch_size, shuffle=True)
         # 分割数据集
         # train_dataset = torch.utils.data.Subset(dataset, train_index)
         # test_dataset = torch.utils.data.Subset(dataset, test_index)
@@ -162,10 +206,12 @@ def prepare_to_train(mri_dir, pet_dir, cli_dir, csv_file, batch_size, model_inde
     print("Cross-validation training completed for all folds.")
     return metrics
 
+
 if __name__ == "__main__":
     args = parse_args()
     print(args)
     time_start = time.time()
+
     best_metrics = prepare_to_train(mri_dir=args.mri_dir, pet_dir=args.pet_dir, cli_dir=args.cli_dir,
                                     csv_file=args.csv_file, batch_size=args.batch_size, model_index=args.model,
                                     seed=args.seed, device=args.device, data_parallel=args.data_parallel,
@@ -183,4 +229,3 @@ if __name__ == "__main__":
     with open(args.logs, 'a') as f:
         f.write(f"Metrics:{best_metrics} \n ")
         f.write(times_result + '\n')
-

@@ -47,9 +47,20 @@ def prepare_to_train(mri_dir, pet_dir, cli_dir, csv_file, batch_size, model_inde
     #     dataset = MriPetDatasetWithTwoInput(mri_dir, pet_dir, csv_file, valid_group=("pMCI", "sMCI"))
     # else:
     #     dataset = MriPetDataset(mri_dir, pet_dir, cli_dir, csv_file, valid_group=("pMCI", "sMCI"))
-    dataset = experiment_settings['dataset'](mri_dir, pet_dir, cli_dir, csv_file,
-                                             resize_shape=experiment_settings['shape'],
-                                             valid_group=experiment_settings['task'])
+    ADNI1_mri_dir = '/data3/wangchangmiao/shenxy/ADNI/ADNI1/MRI'
+    ADNI1_pet_dir = '/data3/wangchangmiao/shenxy/ADNI/ADNI1/PET'
+    ADNI1_csv_file = './csv/ADNI1_match.csv'
+    ADNI2_mri_dir = '/data3/wangchangmiao/shenxy/ADNI/ADNI2/MRI'
+    ADNI2_pet_dir = '/data3/wangchangmiao/shenxy/ADNI/ADNI2/PET'
+    ADNI2_csv_file = './csv/ADNI2_match.csv'
+    ADNI1_dataset = experiment_settings['dataset'](ADNI1_mri_dir, ADNI1_pet_dir, cli_dir, ADNI1_csv_file,
+                                                   resize_shape=experiment_settings['shape'],
+                                                   valid_group=experiment_settings['task'])
+    ADNI2_dataset = experiment_settings['dataset'](ADNI2_mri_dir, ADNI2_pet_dir, cli_dir, ADNI2_csv_file,
+                                                   resize_shape=experiment_settings['shape'],
+                                                   valid_group=experiment_settings['task'])
+
+    dataset = ADNI1_dataset + ADNI2_dataset
     torch.manual_seed(seed)
 
     # K折交叉验证
