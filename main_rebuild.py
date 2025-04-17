@@ -1,3 +1,4 @@
+from torch.utils.data import DataLoader, Dataset, Subset
 import time
 # import os
 # os.environ['CUDA_VISIBLE_DEVICES'] = '2, 3'
@@ -11,7 +12,24 @@ from utils.observer import RuntimeObserver
 from utils.api import *
 from thop import profile, clever_format
 #99480885
-#
+
+class TransformedSubset(Dataset):
+    def __init__(self, subset, transform=None):
+        self.subset = subset
+        self.transform = transform
+
+    def __getitem__(self, index):
+        sample = self.subset[index]
+        if self.transform:
+            # 可选地对 mri、pet、tabular 进行变换
+            sample['mri'] = self.transform(sample['mri'])
+            # 如果你也有 pet 的 transform，可以按需处理
+            sample['pet'] = self.transform(sample['pet'])
+        return sample
+
+    def __len__(self):
+        return len(self.subset)
+
 def prepare_to_train(mri_dir, pet_dir, cli_dir, csv_file, batch_size, model_index,
                      seed, device, data_parallel, n_splits, others_params):
     global experiment_settings
@@ -37,7 +55,7 @@ def prepare_to_train(mri_dir, pet_dir, cli_dir, csv_file, batch_size, model_inde
     # K折交叉验证
     # kf = KFold(n_splits=n_splits, shuffle=True, random_state=seed)
     skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=seed)
-    labels = [data[2] for data in dataset]  # 假设dataset[i]的第3项是label
+    labels = [data[3] for data in dataset]  # 假设dataset[i]的第3项是label
     # 存储每个fold的评估指标
     metrics = {
         'accuracy': [],
@@ -58,6 +76,11 @@ def prepare_to_train(mri_dir, pet_dir, cli_dir, csv_file, batch_size, model_inde
         observer.log(f'Fold {fold}/{5}')
         train_sampler = torch.utils.data.SubsetRandomSampler(train_index)
         val_sampler = torch.utils.data.SubsetRandomSampler(test_index)
+        # train_subset = Subset(dataset, train_idx)
+        # val_subset = Subset(dataset, val_idx)
+        # train_dataset = TransformedSubset(train_subset, transform=total_transform['train_transforms'])
+        # val_dataset = TransformedSubset(val_subset, transform=total_transform['validation_transforms'])
+
         trainDataLoader = torch.utils.data.DataLoader(dataset, sampler=train_sampler, batch_size=batch_size,
                                                       num_workers=4, drop_last=True)
         testDataLoader = torch.utils.data.DataLoader(dataset, sampler=val_sampler, batch_size=batch_size,
