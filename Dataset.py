@@ -90,9 +90,7 @@ class MriPetCliDatasetWithTowLabel(Dataset):
             self.pet_dir = Path(pet_dir)
         self.cli_dir = pd.read_csv(cli_dir)
         self.labels_df = pd.read_csv(csv_file)  # 读取 CSV 文件
-        self.groups = {'DM': 1, 'AD': 1, 'CN': 0, 'pMCI': 1, 'sMCI': 0, 'sSCD': 0, 'pSCD': 1,
-                       'MCI': 1, 'sSMC': 0, 'pSMC': 1, 'SMC': 0, 'sCN': 0,
-                       'pCN': 1, 'ppCN': 1, 'Autism': 1, 'Control': 0}
+        self.groups = {'CN': 0, 'MCI': 1, 'AD': 2,  'pMCI': 1, 'sMCI': 0}
         self.valid_group = valid_group
         self.transform = transforms.Compose([
             Resize(resize_shape),
@@ -156,9 +154,7 @@ class MriPetCliDataset(Dataset):
             self.pet_dir = Path(pet_dir)
         self.cli_dir = pd.read_csv(cli_dir)
         self.labels_df = pd.read_csv(csv_file)  # 读取 CSV 文件
-        self.groups = {'DM': 1, 'AD': 1, 'CN': 0, 'pMCI': 1, 'sMCI': 0, 'sSCD': 0, 'pSCD': 1,
-                       'MCI': 1, 'sSMC': 0, 'pSMC': 1, 'SMC': 0, 'sCN': 0,
-                       'pCN': 1, 'ppCN': 1, 'Autism': 1, 'Control': 0}
+        self.groups = {'CN': 0, 'MCI': 1, 'AD': 2,  'pMCI': 1, 'sMCI': 0}
         self.valid_group = valid_group
         self.transform = transforms.Compose([
             Resize(resize_shape),
@@ -217,9 +213,7 @@ class MriPetDataset(Dataset):
         else:
             self.pet_dir = Path(pet_dir)
         self.labels_df = pd.read_csv(csv_file)  # 读取 CSV 文件
-        self.groups = {'DM': 1, 'AD': 1, 'CN': 0, 'pMCI': 1, 'sMCI': 0, 'sSCD': 0, 'pSCD': 1,
-                       'MCI': 1, 'sSMC': 0, 'pSMC': 1, 'SMC': 0, 'sCN': 0,
-                       'pCN': 1, 'ppCN': 1, 'Autism': 1, 'Control': 0}
+        self.groups = {'CN': 0, 'MCI': 1, 'AD': 2,  'pMCI': 1, 'sMCI': 0}
         self.valid_group = valid_group
         self.transform = transforms.Compose([
             Resize(resize_shape),
@@ -275,9 +269,7 @@ class MriDataset(Dataset):
         else:
             self.pet_dir = Path(pet_dir)
         self.labels_df = pd.read_csv(csv_file)  # 读取 CSV 文件
-        self.groups = {'DM': 1, 'AD': 1, 'CN': 0, 'pMCI': 1, 'sMCI': 0, 'sSCD': 0, 'pSCD': 1,
-                       'MCI': 1, 'sSMC': 0, 'pSMC': 1, 'SMC': 0, 'sCN': 0,
-                       'pCN': 1, 'ppCN': 1, 'Autism': 1, 'Control': 0}
+        self.groups = {'CN': 0, 'MCI': 1, 'AD': 2,  'pMCI': 1, 'sMCI': 0}
         self.valid_group = valid_group
         self.transform = transforms.Compose([
             Resize(resize_shape),
@@ -321,9 +313,7 @@ class MriCliDataset(Dataset):
         self.mri_dir = Path(mri_dir)
         self.cli_dir = pd.read_csv(cli_dir)
         self.labels_df = pd.read_csv(csv_file)  # 读取 CSV 文件
-        self.groups = {'DM': 1, 'AD': 1, 'CN': 0, 'pMCI': 1, 'sMCI': 0, 'sSCD': 0, 'pSCD': 1,
-                       'MCI': 1, 'sSMC': 0, 'pSMC': 1, 'SMC': 0, 'sCN': 0,
-                       'pCN': 1, 'ppCN': 1, 'Autism': 1, 'Control': 0}
+        self.groups = {'CN': 0, 'MCI': 1, 'AD': 2,  'pMCI': 1, 'sMCI': 0}
         self.valid_group = valid_group
         self.only_tabular = False
         self.transform = transforms.Compose([
@@ -374,9 +364,7 @@ class GMWMPETDataset(Dataset):
         self.pet_dir = Path(pet_dir)
         self.cli_dir = pd.read_csv(cli_dir)
         self.labels_df = pd.read_csv(csv_file)  # 读取 CSV 文件
-        self.groups = {'DM': 1, 'AD': 1, 'CN': 0, 'pMCI': 1, 'sMCI': 0, 'sSCD': 0, 'pSCD': 1,
-                       'MCI': 1, 'sSMC': 0, 'pSMC': 1, 'SMC': 0, 'sCN': 0,
-                       'pCN': 1, 'ppCN': 1, 'Autism': 1, 'Control': 0}
+        self.groups = {'CN': 0, 'MCI': 1, 'AD': 2,  'pMCI': 1, 'sMCI': 0}
         self.valid_group = valid_group
         self.transform = transforms.Compose([
             Resize(resize_shape),
@@ -415,20 +403,21 @@ class GMWMPETDataset(Dataset):
         return gm_img_torch.float(), wm_img_torch.float(), pet_img_torch.float(), label
 
 if __name__ == '__main__':
-    mri_dir = r'/data3/wangchangmiao/ADNI/freesurfer/ADNI1/MRI'  # 替换为 MRI 文件的路径
-    pet_dir = r'/data3/wangchangmiao/ADNI/freesurfer/ADNI1/MRI'  # 替换为 PET 文件的路径
-    cli_dir = r'./ADNI_Clinical.csv'
-    csv_file = r'./ADNI1_match.csv'  # 替换为 CSV 文件路径
+    mri_dir = r'/data3/wangchangmiao/shenxy/ADNI/ADNI1/MRI'  # 替换为 MRI 文件的路径
+    pet_dir = r'/data3/wangchangmiao/shenxy/ADNI/ADNI1/PET'  # 替换为 PET 文件的路径
+    cli_dir = r'./csv/ADNI_Clinical.csv'
+    csv_file = r'./csv/ADNI1_match.csv'  # 替换为 CSV 文件路径
     batch_size = 8  # 设置批次大小
 
-    dataset = MriPetDataset(mri_dir, pet_dir, cli_dir, csv_file, valid_group=("pMCI", "sMCI"))
+    dataset = MriPetDataset(mri_dir, pet_dir, cli_dir, csv_file, valid_group=("AD", "MCI", "CN"))
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=0)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     # 测试读取数据
     print('dataloader', len(dataloader))
     print('dataset', len(dataloader.dataset))
-    for i, (mri_imgs, pet_imgs, cli_tab, labels) in enumerate(dataloader):
+    # for i, (mri_imgs, pet_imgs, cli_tab, labels) in enumerate(dataloader):
+    for i, (mri_imgs, pet_imgs, labels) in enumerate(dataloader):
         print(f"{i} MRI Images batch shape: {mri_imgs.shape}")  # ([8, 1, 96, 128, 96])
         print(f"{i} PET Images batch shape: {pet_imgs.shape}")  # ([8, 1, 96, 128, 96])
-        print(f"{i} Clinical Table batch shape: {cli_tab.shape}")  # ([8, 9])
+        # print(f"{i} Clinical Table batch shape: {cli_tab.shape}")  # ([8, 9])
         print(f"{i} Labels batch shape: {labels}")

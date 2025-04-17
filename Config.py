@@ -20,9 +20,9 @@ def parse_args():
     # /home/publicdata/ADNI/ADNI1
     # /mntcephfs/med_dataset/huxiangyang/ADNI/freesurfer/ADNI1
     # /data3/wangchangmiao/ADNI/freesurfer/ADNI1
-    parser.add_argument('--mri_dir', type=str, default='/data4/wangchangmiao/shenxy/ADNI/ADNI2/MRI', help='mri input path')
-    parser.add_argument('--pet_dir', type=str, default='/data4/wangchangmiao/shenxy/ADNI/ADNI2/PET', help='pet input path')
-    parser.add_argument('--csv_file', type=str, default='./csv/ADNI2_match.csv', help='label input path')
+    parser.add_argument('--mri_dir', type=str, default='/data3/wangchangmiao/shenxy/ADNI/ADNI1/MRI', help='mri input path')
+    parser.add_argument('--pet_dir', type=str, default='/data3/wangchangmiao/shenxy/ADNI/ADNI1/PET', help='pet input path')
+    parser.add_argument('--csv_file', type=str, default='./csv/ADNI1_match.csv', help='label input path')
 
     parser.add_argument('--best_result_model_path', type=str,default='best_result.pth', help='the best result model path')
     parser.add_argument('--device', type=str, default='cuda:2', help='device to run')

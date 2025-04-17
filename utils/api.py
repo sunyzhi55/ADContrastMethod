@@ -23,11 +23,11 @@ def run_main_1(observer, epochs, train_loader, test_loader, model, device, optim
             cli_tab = cli_tab.to(device)
             label = label.to(device)
             optimizer.zero_grad()
-            mri_feature, pet_feature, cli_feature, outputs = model.forward(mri_images, pet_image, cli_tab)
-            loss = criterion(mri_feature, pet_feature, cli_feature, label, outputs)
-            _, predictions = torch.max(outputs, dim=1)
-            prob_positive = outputs[:, 1]
-            observer.train_update(loss, predictions, prob_positive, label)
+            mri_feature, pet_feature, cli_feature, outputs_logit = model.forward(mri_images, pet_image, cli_tab)
+            loss = criterion(mri_feature, pet_feature, cli_feature, label, outputs_logit)
+            prob = torch.softmax(outputs_logit, dim=1)
+            _, predictions = torch.max(prob, dim=1)
+            observer.train_update(loss, prob, predictions, label)
             loss.backward()
             optimizer.step()
         if lr_scheduler:
@@ -40,11 +40,11 @@ def run_main_1(observer, epochs, train_loader, test_loader, model, device, optim
                 pet_image = pet_image.to(device)
                 cli_tab = cli_tab.to(device)
                 label = label.to(device)
-                mri_feature, pet_feature, cli_feature, outputs = model.forward(mri_images, pet_image, cli_tab)
-                loss = criterion(mri_feature, pet_feature, cli_feature, label, outputs)
-                _, predictions = torch.max(outputs, dim=1)
-                prob_positive = outputs[:, 1]
-                observer.eval_update(loss, predictions, prob_positive, label)
+                mri_feature, pet_feature, cli_feature, outputs_logit = model.forward(mri_images, pet_image, cli_tab)
+                loss = criterion(mri_feature, pet_feature, cli_feature, label, outputs_logit)
+                prob = torch.softmax(outputs_logit, dim=1)
+                _, predictions = torch.max(prob, dim=1)
+                observer.eval_update(loss, prob, predictions, label)
         if observer.execute(epoch + 1, epochs, len(train_loader.dataset),len(test_loader.dataset), fold, model=model):
             print("Early stopping")
             break
@@ -66,13 +66,13 @@ def run_main_for_hfbsurve(observer, epochs, train_loader, test_loader, model, de
             cli_tab = cli_tab.to(device)
             label = label.to(device)
             optimizer.zero_grad()
-            prob = model.forward(mri_images, pet_image, cli_tab)
-            loss = criterion(prob, label)
+            outputs_logit = model(mri_images, pet_image, cli_tab)
+            loss = criterion(outputs_logit, label)
+            prob = torch.softmax(outputs_logit, dim=1)
             _, predictions = torch.max(prob, dim=1)
-            prob_positive = prob[:, 1]
             loss.backward()
             optimizer.step()
-            observer.train_update(loss, predictions, prob_positive, label)
+            observer.train_update(loss, prob, predictions, label)
         if lr_scheduler:
             lr_scheduler.step()
         with torch.no_grad():
@@ -83,11 +83,11 @@ def run_main_for_hfbsurve(observer, epochs, train_loader, test_loader, model, de
                 pet_image = pet_image.to(device)
                 cli_tab = cli_tab.to(device)
                 label = label.to(device)
-                prob = model.forward(mri_images, pet_image, cli_tab)
-                loss = criterion(prob, label)
+                outputs_logit = model(mri_images, pet_image, cli_tab)
+                loss = criterion(outputs_logit, label)
+                prob = torch.softmax(outputs_logit, dim=1)
                 _, predictions = torch.max(prob, dim=1)
-                prob_positive = prob[:, 1]
-                observer.eval_update(loss, predictions, prob_positive, label)
+                observer.eval_update(loss, prob, predictions, label)
         if observer.execute(epoch + 1, epochs, len(train_loader.dataset), len(test_loader.dataset), fold, model=model):
             print("Early stopping")
             break
@@ -117,10 +117,9 @@ def run_main_for_IMF(observer, epochs, train_loader, test_loader, model, device,
             loss = criterion(outputs, label_2d)
             prob = (outputs[0] + outputs[1] + outputs[2] + outputs[3]) / 4.0
             _, predictions = torch.max(prob, dim=1)
-            prob_positive = prob[:, 1]
             loss.backward()
             optimizer.step()
-            observer.train_update(loss, predictions, prob_positive, label)
+            observer.train_update(loss, prob, predictions, label)
         if lr_scheduler:
             lr_scheduler.step()
         with torch.no_grad():
@@ -136,8 +135,7 @@ def run_main_for_IMF(observer, epochs, train_loader, test_loader, model, device,
                 loss = criterion(outputs, label_2d)
                 prob = (outputs[0] + outputs[1] + outputs[2] + outputs[3]) / 4.0
                 _, predictions = torch.max(prob, dim=1)
-                prob_positive = prob[:, 1]
-                observer.eval_update(loss, predictions, prob_positive, label)
+                observer.eval_update(loss, prob, predictions, label)
         if observer.execute(epoch + 1, epochs, len(train_loader.dataset),len(test_loader.dataset), fold, model=model):
             print("Early stopping")
             break
@@ -171,8 +169,7 @@ def run_main_for_MDL(observer, epochs, train_loader, test_loader, model, device,
             loss = criterion(outputs, label)
             prob = torch.softmax(outputs, dim=1)
             _, predictions = torch.max(prob, dim=1)
-            prob_positive = prob[:, 1]
-            observer.train_update(loss, predictions, prob_positive, label)
+            observer.train_update(loss, prob, predictions, label)
             loss.backward()
             optimizer.step()
         if lr_scheduler:
@@ -190,8 +187,7 @@ def run_main_for_MDL(observer, epochs, train_loader, test_loader, model, device,
                 loss = criterion(outputs, label)
                 prob = torch.softmax(outputs, dim=1)
                 _, predictions = torch.max(prob, dim=1)
-                prob_positive = prob[:, 1]
-                observer.eval_update(loss, predictions, prob_positive, label)
+                observer.eval_update(loss, prob, predictions, label)
         if observer.execute(epoch + 1, epochs, len(train_loader.dataset),len(test_loader.dataset), fold, model=model):
             print("Early stopping")
             break
@@ -216,8 +212,7 @@ def run_main_for_RLAD(observer, epochs, train_loader, test_loader, model, device
             loss = criterion(outputs, label)
             prob = torch.softmax(outputs, dim=1)
             _, predictions = torch.max(prob, dim=1)
-            prob_positive = prob[:, 1]
-            observer.train_update(loss, predictions, prob_positive, label)
+            observer.train_update(loss, prob, predictions, label)
             loss.backward()
             optimizer.step()
         if lr_scheduler:
@@ -232,8 +227,7 @@ def run_main_for_RLAD(observer, epochs, train_loader, test_loader, model, device
                 loss = criterion(outputs, label)
                 prob = torch.softmax(outputs, dim=1)
                 _, predictions = torch.max(prob, dim=1)
-                prob_positive = prob[:, 1]
-                observer.eval_update(loss, predictions, prob_positive, label)
+                observer.eval_update(loss, prob, predictions, label)
         if observer.execute(epoch + 1, epochs, len(train_loader.dataset),len(test_loader.dataset), fold, model=model):
             print("Early stopping")
             break
@@ -262,10 +256,9 @@ def run_main_for_resnet(observer, epochs, train_loader, test_loader, model, devi
             loss = criterion(outputs_logit, label)
             prob = torch.softmax(outputs_logit, dim=1)
             _, predictions = torch.max(prob, dim=1)
-            prob_positive = prob[:, 1]
             loss.backward()
             optimizer.step()
-            observer.train_update(loss, predictions, prob_positive, label)
+            observer.train_update(loss, prob, predictions, label)
         if lr_scheduler:
             lr_scheduler.step()
         with torch.no_grad():
@@ -280,8 +273,7 @@ def run_main_for_resnet(observer, epochs, train_loader, test_loader, model, devi
                 loss = criterion(outputs_logit, label)
                 prob = torch.softmax(outputs_logit, dim=1)
                 _, predictions = torch.max(prob, dim=1)
-                prob_positive = prob[:, 1]
-                observer.eval_update(loss, predictions, prob_positive, label)
+                observer.eval_update(loss, prob, predictions, label)
         if observer.execute(epoch + 1, epochs, len(train_loader.dataset),len(test_loader.dataset), fold, model=model):
             print("Early stopping")
             break
@@ -309,10 +301,9 @@ def run_main_for_hyper_fusion(observer, epochs, train_loader, test_loader, model
             loss = criterion(outputs_logit, label)
             prob = torch.softmax(outputs_logit, dim=1)
             _, predictions = torch.max(prob, dim=1)
-            prob_positive = prob[:, 1]
             loss.backward()
             optimizer.step()
-            observer.train_update(loss, predictions, prob_positive, label)
+            observer.train_update(loss, prob, predictions, label)
         if lr_scheduler:
             lr_scheduler.step()
         with torch.no_grad():
@@ -327,8 +318,7 @@ def run_main_for_hyper_fusion(observer, epochs, train_loader, test_loader, model
                 loss = criterion(outputs_logit, label)
                 prob = torch.softmax(outputs_logit, dim=1)
                 _, predictions = torch.max(prob, dim=1)
-                prob_positive = prob[:, 1]
-                observer.eval_update(loss, predictions, prob_positive, label)
+                observer.eval_update(loss, prob, predictions, label)
         if observer.execute(epoch + 1, epochs, len(train_loader.dataset),len(test_loader.dataset), fold, model=model):
             print("Early stopping")
             break

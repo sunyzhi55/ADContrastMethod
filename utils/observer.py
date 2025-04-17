@@ -2,6 +2,7 @@ from torchmetrics import Accuracy, Recall, Precision, Specificity, F1Score
 from torchmetrics import AUROC, MetricCollection, ConfusionMatrix, MatthewsCorrCoef
 from torch.utils.tensorboard import SummaryWriter
 import torch
+from typing import Literal
 
 class EarlyStopping:
     """Early stops the training if validation loss doesn't improve after a given patience."""
@@ -35,7 +36,8 @@ class EarlyStopping:
             self.counter = 0
 
 class RuntimeObserver:
-    def __init__(self, log_dir, device='cuda', **kwargs):
+    def __init__(self, log_dir, device, num_classes=2,
+                 task: Literal["binary", "multiclass", "multilabel"]="binary", **kwargs):
         """
         The Observer of training, which contains a log file(.txt), computing tools(torchmetrics) and tensorboard writer
         :author windbell
@@ -50,24 +52,25 @@ class RuntimeObserver:
         self.log_file = self.log_dir + 'log.txt'
         self._kwargs = {'name': kwargs['name'] if kwargs.__contains__('name') else 'None',
                    'seed': kwargs['seed'] if kwargs.__contains__('seed') else 'None'}
+        self.task = task
 
         # train stage
         self.total_train_loss = 0.
         self.average_train_loss = 0.
         self.train_metric = {}
         self.train_metric_collection = MetricCollection({
-            'confusionMatrix': ConfusionMatrix(num_classes=2, task='binary').to(device),
-            'Accuracy': Accuracy(num_classes=2, task='binary').to(device),
-            'Precision': Precision(num_classes=2, task='binary').to(device),
-            'Recall': Recall(num_classes=2, task='binary').to(device),
-            'Specificity': Specificity(num_classes=2, task='binary').to(device),
-            'F1': F1Score(num_classes=2, task='binary').to(device),
-            # "MatthewsCorrCoef": MatthewsCorrCoef(num_classes=2, task='binary').to(device),
-            # 'AuRoc': AUROC(num_classes=2, task='binary'),
+            'confusionMatrix': ConfusionMatrix(num_classes=num_classes, task=task).to(device),
+            'Accuracy': Accuracy(num_classes=num_classes, task=task).to(device),
+            'Precision': Precision(num_classes=num_classes, task=task).to(device),
+            'Recall': Recall(num_classes=num_classes, task=task).to(device),
+            'Specificity': Specificity(num_classes=num_classes, task=task).to(device),
+            'F1': F1Score(num_classes=num_classes, task=task).to(device),
+            # "MatthewsCorrCoef": MatthewsCorrCoef(num_classes=num_classes, task=task).to(device),
+            # 'AuRoc': AUROC(num_classes=num_classes, task=task),
             # 'BalanceAccuracy': None,
         }).to(device)
         self.train_balance_accuracy = 0.
-        self.compute_train_auc = AUROC(num_classes=2, task='binary').to(device)
+        self.compute_train_auc = AUROC(num_classes=num_classes, task=task).to(device)
         self.train_auc = 0.
 
         # test stage
@@ -75,17 +78,17 @@ class RuntimeObserver:
         self.average_eval_loss = 0.
         self.eval_metric = {}
         self.eval_metric_collection = MetricCollection({
-            'confusionMatrix': ConfusionMatrix(num_classes=2, task='binary').to(device),
-            'Accuracy': Accuracy(num_classes=2, task='binary').to(device),
-            'Precision': Precision(num_classes=2, task='binary').to(device),
-            'Recall': Recall(num_classes=2, task='binary').to(device),
-            'Specificity': Specificity(num_classes=2, task='binary').to(device),
-            'F1': F1Score(num_classes=2, task='binary').to(device),
-            # 'AuRoc': AUROC(num_classes=2, task='binary').to(device),
+            'confusionMatrix': ConfusionMatrix(num_classes=num_classes, task=task).to(device),
+            'Accuracy': Accuracy(num_classes=num_classes, task=task).to(device),
+            'Precision': Precision(num_classes=num_classes, task=task).to(device),
+            'Recall': Recall(num_classes=num_classes, task=task).to(device),
+            'Specificity': Specificity(num_classes=num_classes, task=task).to(device),
+            'F1': F1Score(num_classes=num_classes, task=task).to(device),
+            # 'AuRoc': AUROC(num_classes=num_classes, task=task).to(device),
             # 'BalanceAccuracy': None,
         }).to(device)
         self.eval_balance_accuracy = 0.
-        self.compute_eval_auc = AUROC(num_classes=2, task='binary').to(device)
+        self.compute_eval_auc = AUROC(num_classes=num_classes, task=task).to(device)
         self.eval_auc = 0.
 
         self.summary = SummaryWriter(log_dir=self.log_dir + 'summery')
@@ -114,12 +117,20 @@ class RuntimeObserver:
         with open (f'{self.log_file}', 'a') as f:
             f.write(info)
 
-    def train_update(self, loss, prediction, prob_positive, label):
+    def train_update(self, loss, prob, prediction, label):
+        if self.task=='binary':
+            prob_positive = prob[:, 1]
+        else:
+            prob_positive = prob
         self.total_train_loss += loss.item()
         self.train_metric_collection.forward(prediction, label)
         self.compute_train_auc.update(prob_positive, label)
 
-    def eval_update(self, loss, prediction, prob_positive, label):
+    def eval_update(self, loss, prob, prediction, label):
+        if self.task=='binary':
+            prob_positive = prob[:, 1]
+        else:
+            prob_positive = prob
         self.total_eval_loss += loss.item()
         self.eval_metric_collection.forward(prediction, label)
         self.compute_eval_auc.update(prob_positive, label)
