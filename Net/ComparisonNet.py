@@ -35,7 +35,7 @@ class SubNet(nn.Module):
 
 class HFBSurv(nn.Module):
     def __init__(self, input_dims=(256, 256, 256), hidden_dims=(50, 50, 50, 256), output_dims=(20, 20, 2),
-                 dropouts=(0.1, 0.1, 0.1, 0.3), rank=20, fac_drop=0.1):
+                 dropouts=(0.1, 0.1, 0.1, 0.3), rank=20, fac_drop=0.1, num_classes=2):
         super(HFBSurv, self).__init__()
         # self.Radio_encoder = Radiomic_encoder(num_features=1781)
         # self.Radio_encoder.projection_head = nn.Identity()
@@ -61,7 +61,7 @@ class HFBSurv(nn.Module):
 
         self.output_intra = output_dims[0]
         self.output_inter = output_dims[1]
-        self.label_dim = output_dims[2]
+        # self.label_dim = output_dims[2]
         self.rank = rank
         self.factor_drop = fac_drop
 
@@ -95,7 +95,7 @@ class HFBSurv(nn.Module):
         encoder1 = nn.Sequential(nn.Linear(self.in_size, self.cox_hidden), nn.Tanh(), nn.Dropout(p=self.cox_prob))
         encoder2 = nn.Sequential(nn.Linear(self.cox_hidden, 64), nn.Tanh(), nn.Dropout(p=self.cox_prob))
         self.encoder = nn.Sequential(encoder1, encoder2)
-        self.classifier = nn.Sequential(nn.Linear(64, self.label_dim), nn.Sigmoid())
+        self.classifier = nn.Linear(64, num_classes)
 
         # self.output_range = Parameter(torch.FloatTensor([6]), requires_grad=False)
         # self.output_shift = Parameter(torch.FloatTensor([-3]), requires_grad=False)

@@ -6,7 +6,7 @@ from datetime import datetime
 from pathlib import Path
 from sklearn.model_selection import StratifiedKFold
 import torch.utils.data
-from model_object import models
+from model_object_ad_mci_cn import models
 from Config import parse_args
 from utils.observer import RuntimeObserver
 from utils.api import *
@@ -55,7 +55,8 @@ def prepare_to_train(mri_dir, pet_dir, cli_dir, csv_file, batch_size, model_inde
     # K折交叉验证
     # kf = KFold(n_splits=n_splits, shuffle=True, random_state=seed)
     skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=seed)
-    labels = [data[3] for data in dataset]  # 假设dataset[i]的第3项是label
+    labels = [data.get("label") for data in dataset]  # 假设dataset[i]的第3项是label
+    num_classes = len(experiment_settings['task'])
     # 存储每个fold的评估指标
     metrics = {
         'accuracy': [],
@@ -72,7 +73,8 @@ def prepare_to_train(mri_dir, pet_dir, cli_dir, csv_file, batch_size, model_inde
     Path(target_dir).mkdir(exist_ok=True)
     # for fold, (train_index, test_index) in enumerate(kf.split(dataset)):
     for fold, (train_index, test_index) in enumerate(skf.split(dataset, labels), 1):
-        observer = RuntimeObserver(log_dir=target_dir, device=device, num_classes=2, task="binary",
+        observer = RuntimeObserver(log_dir=target_dir, device=device, num_classes=num_classes,
+                                   task="multiclass" if num_classes > 2 else "binary",
                                    name=experiment_settings['Name'], seed=seed)
         observer.log(f'Fold {fold}/{5}')
         train_sampler = torch.utils.data.SubsetRandomSampler(train_index)
@@ -99,14 +101,14 @@ def prepare_to_train(mri_dir, pet_dir, cli_dir, csv_file, batch_size, model_inde
         # 模型加载
         _model = experiment_settings['Model']
         if model_index == 'MDL':
-            model = _model(model_depth=18, in_planes=1, num_classes=2)
+            model = _model(model_depth=18, in_planes=1, num_classes=num_classes)
         elif model_index == 'RLAD':
             _, model = _model()
         elif model_index == 'HyperFusionNet':
-            model = _model(train_loader=trainDataLoader, GPU=True,)
+            model = _model(train_loader=trainDataLoader, GPU=True, n_outputs=num_classes)
         else:
             print(f"The name of model will run {_model}")
-            model = _model()
+            model = _model(num_classes=num_classes)
         # 使用 DataParallel 进行多GPU训练
         # if torch.cuda.device_count() > 1 and data_parallel == 1:
         #     observer.log("Using " + str(torch.cuda.device_count()) + " GPUs for training.\n")

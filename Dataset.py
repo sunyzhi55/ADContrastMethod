@@ -96,7 +96,7 @@ class MriPetCliDatasetWithTowLabel(Dataset):
             Resize(resize_shape),
             NoNan(),
             Numpy2Torch(),
-            transforms.Normalize([0.5], [0.5])
+            # transforms.Normalize([0.5], [0.5])
         ])
 
         # 过滤只保留 valid_group 中的有效数据
@@ -125,16 +125,20 @@ class MriPetCliDatasetWithTowLabel(Dataset):
         clinical_features = get_clinical(img_name, self.cli_dir)
         clin_tab_torch = torch.from_numpy(clinical_features).float()
 
-        # 只有MRI,没有PET,用于eval阶段
-        if self.pet_dir == '':
-            return mri_img_torch.float(), torch.Tensor(label_2d)
-        else:
-            # PET 文件路径
-            pet_img_path = self.pet_dir / (img_name + '.nii')
-            # print('pet_img_path', pet_img_path)
-            pet_img_numpy = nib.load(str(pet_img_path)).get_fdata()
-            pet_img_torch = self.transform(pet_img_numpy)
-            return mri_img_torch.float(), pet_img_torch.float(), clin_tab_torch, label, torch.Tensor(label_2d)
+
+        # PET 文件路径
+        pet_img_path = self.pet_dir / (img_name + '.nii')
+        # print('pet_img_path', pet_img_path)
+        pet_img_numpy = nib.load(str(pet_img_path)).get_fdata()
+        pet_img_torch = self.transform(pet_img_numpy)
+        batch = {
+            "mri": mri_img_torch.float(),
+            "pet": pet_img_torch.float(),
+            "clinical": clin_tab_torch,
+            "label": label,
+            "label_2d": torch.Tensor(label_2d)
+        }
+        return batch
 
 # MRI + PET + CLI 数据集
 class MriPetCliDataset(Dataset):
@@ -160,7 +164,7 @@ class MriPetCliDataset(Dataset):
             Resize(resize_shape),
             NoNan(),
             Numpy2Torch(),
-            transforms.Normalize([0.5], [0.5])
+            # transforms.Normalize([0.5], [0.5])
         ])
 
         # 过滤只保留 valid_group 中的有效数据
@@ -187,15 +191,21 @@ class MriPetCliDataset(Dataset):
         clin_tab_torch = torch.from_numpy(clinical_features).float()
 
         # 只有MRI,没有PET,用于eval阶段
-        if self.pet_dir == '':
-            return mri_img_torch.float(), label
-        else:
-            # PET 文件路径
-            pet_img_path = self.pet_dir / (img_name + '.nii')
-            # print('pet_img_path', pet_img_path)
-            pet_img_numpy = nib.load(str(pet_img_path)).get_fdata()
-            pet_img_torch = self.transform(pet_img_numpy)
-            return mri_img_torch.float(), pet_img_torch.float(), clin_tab_torch, label
+        # if self.pet_dir == '':
+        #     return mri_img_torch.float(), label
+        # PET 文件路径
+        pet_img_path = self.pet_dir / (img_name + '.nii')
+        # print('pet_img_path', pet_img_path)
+        pet_img_numpy = nib.load(str(pet_img_path)).get_fdata()
+        pet_img_torch = self.transform(pet_img_numpy)
+        batch = {
+            "mri": mri_img_torch.float(),
+            "pet": pet_img_torch.float(),
+            "clinical": clin_tab_torch,
+            "label": label
+        }
+
+        return batch
 
 # MRI + PET 数据集
 class MriPetDataset(Dataset):
@@ -219,7 +229,7 @@ class MriPetDataset(Dataset):
             Resize(resize_shape),
             NoNan(),
             Numpy2Torch(),
-            transforms.Normalize([0.5], [0.5])
+            # transforms.Normalize([0.5], [0.5])
         ])
 
         # 过滤只保留 valid_group 中的有效数据
@@ -243,15 +253,20 @@ class MriPetDataset(Dataset):
         label = self.groups.get(label_str, -1)  # 获取标签，默认值为 -1
 
         # 只有MRI,没有PET,用于eval阶段
-        if self.pet_dir == '':
-            return mri_img_torch.float(), label
-        else:
-            # PET 文件路径
-            pet_img_path = self.pet_dir / (img_name + '.nii')
-            # print('pet_img_path', pet_img_path)
-            pet_img_numpy = nib.load(str(pet_img_path)).get_fdata()
-            pet_img_torch = self.transform(pet_img_numpy)
-            return mri_img_torch.float(), pet_img_torch.float(), label
+        # if self.pet_dir == '':
+        #     return mri_img_torch.float(), label
+
+        # PET 文件路径
+        pet_img_path = self.pet_dir / (img_name + '.nii')
+        # print('pet_img_path', pet_img_path)
+        pet_img_numpy = nib.load(str(pet_img_path)).get_fdata()
+        pet_img_torch = self.transform(pet_img_numpy)
+        batch = {
+            "mri": mri_img_torch.float(),
+            "pet": pet_img_torch.float(),
+            "label": label
+        }
+        return batch
 
 # 单MRI 数据集
 class MriDataset(Dataset):
@@ -275,7 +290,7 @@ class MriDataset(Dataset):
             Resize(resize_shape),
             NoNan(),
             Numpy2Torch(),
-            transforms.Normalize([0.5], [0.5])
+            # transforms.Normalize([0.5], [0.5])
         ])
 
         # 过滤只保留 valid_group 中的有效数据
@@ -297,7 +312,13 @@ class MriDataset(Dataset):
         mri_img_numpy = nib.load(str(mri_img_path)).get_fdata()
         mri_img_torch = self.transform(mri_img_numpy)
         label = self.groups.get(label_str, -1)  # 获取标签，默认值为 -1
-        return mri_img_torch.float(), label
+
+        batch = {
+            "mri": mri_img_torch.float(),
+            "label": label
+        }
+
+        return batch
 
 # MRI + CLI 数据集
 class MriCliDataset(Dataset):
@@ -320,7 +341,7 @@ class MriCliDataset(Dataset):
             Resize(resize_shape),
             NoNan(),
             Numpy2Torch(),
-            transforms.Normalize([0.5], [0.5])
+            # transforms.Normalize([0.5], [0.5])
         ])
 
 
@@ -345,7 +366,12 @@ class MriCliDataset(Dataset):
         label = self.groups.get(label_str, -1)  # 获取标签，默认值为 -1
         clinical_features = get_clinical(img_name, self.cli_dir)
         clin_tab_torch = torch.from_numpy(clinical_features).float()
-        return mri_img_torch.float(), clin_tab_torch, label
+        batch = {
+            "mri": mri_img_torch.float(),
+            "clinical": clin_tab_torch,
+            "label": label
+        }
+        return batch
 
 # 自定义 Dataset 类 GM WM PET
 class GMWMPETDataset(Dataset):
@@ -370,7 +396,7 @@ class GMWMPETDataset(Dataset):
             Resize(resize_shape),
             NoNan(),
             Numpy2Torch(),
-            transforms.Normalize([0.5], [0.5])
+            # transforms.Normalize([0.5], [0.5])
         ])
 
         # 过滤只保留 valid_group 中的有效数据
@@ -399,8 +425,13 @@ class GMWMPETDataset(Dataset):
         pet_img_numpy = nib.load(str(pet_img_path)).get_fdata()
         pet_img_torch = self.transform(pet_img_numpy)
         label = self.groups.get(label_str, -1)  # 获取标签，默认值为 -1
-
-        return gm_img_torch.float(), wm_img_torch.float(), pet_img_torch.float(), label
+        batch = {
+            "gm": gm_img_torch.float(),
+            "wm": wm_img_torch.float(),
+            "pet": pet_img_torch.float(),
+            "label": label
+        }
+        return batch
 
 if __name__ == '__main__':
     mri_dir = r'/data3/wangchangmiao/shenxy/ADNI/ADNI1/MRI'  # 替换为 MRI 文件的路径
