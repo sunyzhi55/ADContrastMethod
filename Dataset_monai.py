@@ -366,7 +366,7 @@ class MriCliDataset(Dataset):
         self.labels_df = pd.read_csv(csv_file)  # 读取 CSV 文件
         self.groups = {'CN': 0, 'MCI': 1, 'AD': 2, 'pMCI': 1, 'sMCI': 0}
         self.valid_group = valid_group
-        self.only_tabular = False
+        # self.only_tabular = False
         # monai 变换
         self.load_transform = Compose([
             LoadImage(image_only=True),  # 第一步：加载图像数据

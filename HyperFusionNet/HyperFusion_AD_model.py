@@ -184,7 +184,7 @@ class MriCliDataset(Dataset):
                        'MCI': 1, 'sSMC': 0, 'pSMC': 1, 'SMC': 0, 'sCN': 0,
                        'pCN': 1, 'ppCN': 1, 'Autism': 1, 'Control': 0}
         self.valid_group = valid_group
-        self.only_tabular = False
+        # self.only_tabular = False
         self.transform = transforms.Compose([
             Resize(resize_shape),
             NoNan(),

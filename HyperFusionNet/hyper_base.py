@@ -27,19 +27,19 @@ class HyperNetwork(nn.Module):
         if var_hypernet_input is None:
             # according to PRINCIPLED WEIGHT INITIALIZATION FOR HYPERNETWORKS
             hyper_input_type_dict = {"image": 0, "tabular": 1}
-            if hyper_input_type == "tabular":
-                only_tabular = train_dataloader.dataset.only_tabular
-                train_dataloader.dataset.only_tabular = True
+            # if hyper_input_type == "tabular":
+            #     only_tabular = train_dataloader.dataset.only_tabular
+            #     train_dataloader.dataset.only_tabular = True
             variances = []
             for batch in iter(train_dataloader):
                 # to choose the input for the hyper network - (image or tabular)
-                values = batch[hyper_input_type_dict[hyper_input_type]]
+                values = batch["clinical"]
                 if embd_vars:  # calculates tha variance after the embedding model
                     values = self.embedding_model(values)
                 for v in values:
                     variances += [np.array(v.view(-1).detach().cpu()).var()]
-            if hyper_input_type == "tabular":
-                train_dataloader.dataset.only_tabular = only_tabular
+            # if hyper_input_type == "tabular":
+            #     train_dataloader.dataset.only_tabular = only_tabular
 
             var_hypernet_input = np.mean(variances)
             if var_hypernet_input == 0:

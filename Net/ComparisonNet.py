@@ -389,8 +389,8 @@ class Triple_model_CoAttention_Fusion(nn.Module):
         self.SA2 = SelfAttention(16, 256, 256, hidden_dropout_prob=0.2)
         self.SA3 = SelfAttention(16, 256, 256, hidden_dropout_prob=0.2)
 
-        # self.classify_head = DenseNet(layer_num=(6, 12, 24, 16), growth_rate=16, in_channels=1, classes=num_classes)
-        self.classify_head = MlpKan(init_features=768, classes=num_classes)
+        self.classify_head = DenseNet(layer_num=(6, 12, 24, 16), growth_rate=16, in_channels=1, classes=num_classes)
+        # self.classify_head = MlpKan(init_features=768, classes=num_classes)
 
     def forward(self, mri, pet, cli):
         """

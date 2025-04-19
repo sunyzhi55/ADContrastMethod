@@ -6,8 +6,7 @@ from datetime import datetime
 from pathlib import Path
 from sklearn.model_selection import StratifiedKFold
 import torch.utils.data
-from model_object_ad_mci_cn import models
-# from model_object import models
+from model_object import models
 from Config import parse_args
 from utils.observer import RuntimeObserver
 from utils.api import *
@@ -21,10 +20,19 @@ class TransformedSubset(Dataset):
     def __getitem__(self, index):
         sample = self.subset[index]
         if self.transform:
-            # 可选地对 mri、pet、tabular 进行变换
-            sample['mri'] = self.transform(sample['mri'])
-            # 如果你也有 pet 的 transform，可以按需处理
-            sample['pet'] = self.transform(sample['pet'])
+            # 对MRI和PET分别应用转换
+            if 'mri' in sample:
+                sample['mri'] = self.transform(sample['mri'])
+                sample['mri'] = sample['mri'].as_tensor()
+            if 'pet' in sample:
+                sample['pet'] = self.transform(sample['pet'])
+                sample['pet'] = sample['pet'].as_tensor()
+            if 'gm' in sample:
+                sample['gm'] = self.transform(sample['gm'])
+                sample['gm'] = sample['gm'].as_tensor()
+            if 'wm' in sample:
+                sample['wm'] = self.transform(sample['wm'])
+                sample['wm'] = sample['wm'].as_tensor()
         return sample
 
     def __len__(self):
@@ -47,6 +55,21 @@ def prepare_to_train(mri_dir, pet_dir, cli_dir, csv_file, batch_size, model_inde
     #     dataset = MriPetDatasetWithTwoInput(mri_dir, pet_dir, csv_file, valid_group=("pMCI", "sMCI"))
     # else:
     #     dataset = MriPetDataset(mri_dir, pet_dir, cli_dir, csv_file, valid_group=("pMCI", "sMCI"))
+    # ADNI1_mri_dir = '/data3/wangchangmiao/shenxy/ADNI/ADNI1/MRI'
+    # ADNI1_pet_dir = '/data3/wangchangmiao/shenxy/ADNI/ADNI1/PET'
+    # ADNI1_csv_file = './csv/ADNI1_match.csv'
+    # ADNI2_mri_dir = '/data3/wangchangmiao/shenxy/ADNI/ADNI2/MRI'
+    # ADNI2_pet_dir = '/data3/wangchangmiao/shenxy/ADNI/ADNI2/PET'
+    # ADNI2_csv_file = './csv/ADNI2_match.csv'
+    # ADNI1_dataset = experiment_settings['dataset'](ADNI1_mri_dir, ADNI1_pet_dir, cli_dir, ADNI1_csv_file,
+    #                                                resize_shape=experiment_settings['shape'],
+    #                                                valid_group=experiment_settings['task'])
+    # ADNI2_dataset = experiment_settings['dataset'](ADNI2_mri_dir, ADNI2_pet_dir, cli_dir, ADNI2_csv_file,
+    #                                                resize_shape=experiment_settings['shape'],
+    #                                                valid_group=experiment_settings['task'])
+    # dataset = ADNI1_dataset + ADNI2_dataset
+
+
     dataset = experiment_settings['dataset'](mri_dir, pet_dir, cli_dir, csv_file,
                                              resize_shape=experiment_settings['shape'],
                                              valid_group=experiment_settings['task'])
@@ -76,7 +99,7 @@ def prepare_to_train(mri_dir, pet_dir, cli_dir, csv_file, batch_size, model_inde
         observer = RuntimeObserver(log_dir=target_dir, device=device, num_classes=num_classes,
                                    task="multiclass" if num_classes > 2 else "binary",
                                    name=experiment_settings['Name'], seed=seed)
-        observer.log(f'Fold {fold}/{5}')
+        observer.log(f'Fold {fold}/{n_splits}')
         train_sampler = torch.utils.data.SubsetRandomSampler(train_index)
         val_sampler = torch.utils.data.SubsetRandomSampler(test_index)
         # train_subset = Subset(dataset, train_idx)
@@ -106,6 +129,10 @@ def prepare_to_train(mri_dir, pet_dir, cli_dir, csv_file, batch_size, model_inde
             _, model = _model()
         elif model_index == 'HyperFusionNet':
             model = _model(train_loader=trainDataLoader, GPU=True, n_outputs=num_classes)
+        elif model_index == "VAPL":
+            model = _model(input_size=[32 * 42 * 32, 16 * 21 * 16, 8 * 10 * 8, 4 * 5 * 4],
+                           dims=[32, 64, 128, 256], depths=[3, 3, 3, 3], num_heads=8, in_channels=1,
+                           num_classes=num_classes)
         else:
             print(f"The name of model will run {_model}")
             model = _model(num_classes=num_classes)
@@ -121,7 +148,22 @@ def prepare_to_train(mri_dir, pet_dir, cli_dir, csv_file, batch_size, model_inde
         observer.log("\n===============================================\n")
 
         # 超参数设置
-        optimizer = experiment_settings['Optimizer'](model.parameters(), experiment_settings['Lr'])
+        # 获取优化器类和学习率
+        optimizer_class = experiment_settings['Optimizer']
+        learning_rate = experiment_settings['Lr']
+        # 检查 weight_decay 是否存在
+        if 'weight_decay' in experiment_settings and experiment_settings['weight_decay'] is not None:
+            weight_decay = experiment_settings['weight_decay']
+            optimizer = optimizer_class(
+                model.parameters(),
+                lr=learning_rate,
+                weight_decay=weight_decay
+            )
+        else:
+            optimizer = optimizer_class(
+                model.parameters(),
+                lr=learning_rate
+            )
         # 定义一个filter，只传入requires_grad=True的模型参数
         # optimizer = experiment_settings['Optimizer'](filter(lambda p: p.requires_grad, model.parameters()),
         #                                              experiment_settings['Lr'])

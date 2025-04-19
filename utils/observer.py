@@ -191,8 +191,8 @@ class RuntimeObserver:
     def execute(self, e, epoch, train_dataset_length, eval_dataset_length, fold, model=None):
         self.compute_result(epoch, train_dataset_length, eval_dataset_length)
         self.print_result(e, epoch)
-        if self.eval_metric['Accuracy'] > self.best_dicts['Accuracy']:
-        # if (self.eval_metric['Specificity'] + self.eval_metric['Recall']) /2.0 > self.best_dicts['BalanceAccuracy']:
+        # if self.eval_metric['Accuracy'] > self.best_dicts['Accuracy']:
+        if (self.eval_metric['Specificity'] + self.eval_metric['Recall']) /2.0 > self.best_dicts['BalanceAccuracy']:
             # abs(total_precision - total_recall) <= abs(self.best_dicts['p'] - self.best_dicts['recall']):
             self.get_best(e)
             model_save_path = self.log_dir + f'{str(self._kwargs["name"])}_best_model_fold{fold}.pth'

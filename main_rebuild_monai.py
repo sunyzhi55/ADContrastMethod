@@ -83,7 +83,7 @@ def prepare_to_train(mri_dir, pet_dir, cli_dir, csv_file, batch_size, model_inde
                 padding_mode='zeros'
             ),
             RandGaussianNoise(prob=0.5, std=0.05),  # 高斯噪声
-            RandGaussianSmooth(prob=0.5, sigma_x=(0.5, 1.0)),  # 高斯模糊
+            # RandGaussianSmooth(prob=0.5, sigma_x=(0.5, 1.0)),  # 高斯模糊
             EnsureType()  # 确保输出为tensor
         ]),
         'validation_transforms': Compose([
@@ -150,9 +150,14 @@ def prepare_to_train(mri_dir, pet_dir, cli_dir, csv_file, batch_size, model_inde
             _, model = _model()
         elif model_index == 'HyperFusionNet':
             model = _model(train_loader=trainDataLoader, GPU=True, n_outputs=num_classes)
+        elif model_index == "VAPL":
+            model = _model(input_size=[32 * 42 * 32, 16 * 21 * 16, 8 * 10 * 8, 4 * 5 * 4],
+                           dims=[32, 64, 128, 256], depths=[3, 3, 3, 3], num_heads=8, in_channels=1,
+                           num_classes=num_classes)
         else:
             print(f"The name of model will run {_model}")
             model = _model(num_classes=num_classes)
+
         # 使用 DataParallel 进行多GPU训练
         # if torch.cuda.device_count() > 1 and data_parallel == 1:
         #     observer.log("Using " + str(torch.cuda.device_count()) + " GPUs for training.\n")
