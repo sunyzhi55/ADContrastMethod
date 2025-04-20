@@ -2,6 +2,7 @@ import torch
 from torch import nn
 from Net.basic import *
 from Net.defineViT import ViT
+from Net.nnMamba import nnMambaEncoder
 from Net.metaformer3D import poolformerv2_3d_s12
 import torch.nn.functional as F
 from efficientnet_pytorch_3d import EfficientNet3D
@@ -660,6 +661,37 @@ class MetaFormerMriPet(nn.Module):
         self.name = 'MetaFormer_mri_pet'
         self.MriExtraction = poolformerv2_3d_s12(num_classes=500)
         self.PetExtraction = poolformerv2_3d_s12(num_classes=500)
+        self.fc = nn.Sequential(
+            nn.Linear(2 * 500, 256),
+            nn.ReLU(),
+            nn.Linear(256, 64),
+            nn.ReLU(),
+            nn.Linear(64, num_classes)
+        )
+    def forward(self, mri_pet):
+        """
+        Mri: [8, 1, 96, 128, 96]
+        Pet: [8, 1, 96, 128, 96]
+        """
+        # 已知输入 mri_pet 为[8, 2, 96, 128, 96]，现在通过一下代码获得mri pet 为 torch.Size([8, 96, 128, 96])，但是应该为torch.Size([8, 1, 96, 128, 96])，请解决
+        mri = mri_pet[:, 0:1, :, :, :]
+        # print(f'mri shape: {mri.shape}')
+        pet = mri_pet[:, 1:2, :, :, :]
+        # print(f'pet shape: {pet.shape}')
+        mri_feature = self.MriExtraction(mri)  # [8, 400]
+        # print(f'mri feature shape: {mri_feature.shape}')
+        pet_feature = self.PetExtraction(pet)  # [8, 400]
+        # print(f'pet feature.shape:{pet_feature.shape}')
+        result = self.fc(torch.cat((mri_feature, pet_feature), dim=1))
+        return result
+
+
+class nnMambaMriPet(nn.Module):
+    def __init__(self, num_classes=2, pretrained_path=None):
+        super(nnMambaMriPet, self).__init__()
+        self.name = 'MetaFormer_mri_pet'
+        self.MriExtraction = nnMambaEncoder(number_classes=500)
+        self.PetExtraction = nnMambaEncoder(number_classes=500)
         self.fc = nn.Sequential(
             nn.Linear(2 * 500, 256),
             nn.ReLU(),

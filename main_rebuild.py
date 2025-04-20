@@ -130,9 +130,15 @@ def prepare_to_train(mri_dir, pet_dir, cli_dir, csv_file, batch_size, model_inde
         elif model_index == 'HyperFusionNet':
             model = _model(train_loader=trainDataLoader, GPU=True, n_outputs=num_classes)
         elif model_index == "VAPL":
-            model = _model(input_size=[32 * 42 * 32, 16 * 21 * 16, 8 * 10 * 8, 4 * 5 * 4],
-                           dims=[32, 64, 128, 256], depths=[3, 3, 3, 3], num_heads=8, in_channels=1,
+            model = _model(input_size=[37 * 45 * 37, 18 * 22 * 18, 9 * 11 * 9, 4 * 5 * 4],dims=[32, 64, 128, 256],
+                           depths=[3, 3, 3, 3], num_heads=8, in_channels=1,
                            num_classes=num_classes)
+            # model.load_state_dict(r"./best_weight", weights_only=False)
+            # keys = list(state_dict.keys())
+            # state_dict.pop(keys[0])
+            # state_dict.pop(keys[-1])
+            # state_dict.pop(keys[-2])
+            # model.load_state_dict(state_dict, strict=False)
         else:
             print(f"The name of model will run {_model}")
             model = _model(num_classes=num_classes)

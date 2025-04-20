@@ -6,7 +6,7 @@ from datetime import datetime
 from pathlib import Path
 from sklearn.model_selection import StratifiedKFold
 import torch.utils.data
-from model_object_monai import models
+from model_object import models
 from Config import parse_args
 from utils.observer import RuntimeObserver
 from utils.api import *
@@ -157,7 +157,6 @@ def prepare_to_train(mri_dir, pet_dir, cli_dir, csv_file, batch_size, model_inde
         else:
             print(f"The name of model will run {_model}")
             model = _model(num_classes=num_classes)
-
         # 使用 DataParallel 进行多GPU训练
         # if torch.cuda.device_count() > 1 and data_parallel == 1:
         #     observer.log("Using " + str(torch.cuda.device_count()) + " GPUs for training.\n")

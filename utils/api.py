@@ -334,7 +334,7 @@ def run_main_for_hyper_fusion(observer, epochs, train_loader, test_loader, model
     observer.finish(fold)
 
 
-def run_main_for_hyper_vapl(observer, epochs, train_loader, test_loader, model, device, optimizer, criterion, lr_scheduler, fold):
+def run_main_for_vapl(observer, epochs, train_loader, test_loader, model, device, optimizer, criterion, lr_scheduler, fold):
     model = model.to(device)
     print("start training")
     for epoch in range(epochs):
