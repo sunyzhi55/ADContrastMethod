@@ -37,7 +37,9 @@ class EarlyStopping:
 
 class RuntimeObserver:
     def __init__(self, log_dir, device, num_classes=2,
-                 task: Literal["binary", "multiclass", "multilabel"]="binary", **kwargs):
+                 task: Literal["binary", "multiclass", "multilabel"]="binary",
+                 average: Literal["micro", "macro", "weighted", "none"] = "micro",
+                 **kwargs):
         """
         The Observer of training, which contains a log file(.txt), computing tools(torchmetrics) and tensorboard writer
         :author windbell
@@ -61,10 +63,10 @@ class RuntimeObserver:
         self.train_metric_collection = MetricCollection({
             'confusionMatrix': ConfusionMatrix(num_classes=num_classes, task=task).to(device),
             'Accuracy': Accuracy(num_classes=num_classes, task=task).to(device),
-            'Precision': Precision(num_classes=num_classes, task=task).to(device),
-            'Recall': Recall(num_classes=num_classes, task=task).to(device),
-            'Specificity': Specificity(num_classes=num_classes, task=task).to(device),
-            'F1': F1Score(num_classes=num_classes, task=task).to(device),
+            'Precision': Precision(num_classes=num_classes, task=task, average=average).to(device),
+            'Recall': Recall(num_classes=num_classes, task=task, average=average).to(device),
+            'Specificity': Specificity(num_classes=num_classes, task=task, average=average).to(device),
+            'F1': F1Score(num_classes=num_classes, task=task, average=average).to(device),
             # "MatthewsCorrCoef": MatthewsCorrCoef(num_classes=num_classes, task=task).to(device),
             # 'AuRoc': AUROC(num_classes=num_classes, task=task),
             # 'BalanceAccuracy': None,
@@ -80,10 +82,10 @@ class RuntimeObserver:
         self.eval_metric_collection = MetricCollection({
             'confusionMatrix': ConfusionMatrix(num_classes=num_classes, task=task).to(device),
             'Accuracy': Accuracy(num_classes=num_classes, task=task).to(device),
-            'Precision': Precision(num_classes=num_classes, task=task).to(device),
-            'Recall': Recall(num_classes=num_classes, task=task).to(device),
-            'Specificity': Specificity(num_classes=num_classes, task=task).to(device),
-            'F1': F1Score(num_classes=num_classes, task=task).to(device),
+            'Precision': Precision(num_classes=num_classes, task=task, average=average).to(device),
+            'Recall': Recall(num_classes=num_classes, task=task, average=average).to(device),
+            'Specificity': Specificity(num_classes=num_classes, task=task, average=average).to(device),
+            'F1': F1Score(num_classes=num_classes, task=task, average=average).to(device),
             # 'AuRoc': AUROC(num_classes=num_classes, task=task).to(device),
             # 'BalanceAccuracy': None,
         }).to(device)

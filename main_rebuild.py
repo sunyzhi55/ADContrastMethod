@@ -98,6 +98,7 @@ def prepare_to_train(mri_dir, pet_dir, cli_dir, csv_file, batch_size, model_inde
     for fold, (train_index, test_index) in enumerate(skf.split(dataset, labels), 1):
         observer = RuntimeObserver(log_dir=target_dir, device=device, num_classes=num_classes,
                                    task="multiclass" if num_classes > 2 else "binary",
+                                   average='macro' if num_classes > 2 else 'micro',
                                    name=experiment_settings['Name'], seed=seed)
         observer.log(f'Fold {fold}/{n_splits}')
         train_sampler = torch.utils.data.SubsetRandomSampler(train_index)

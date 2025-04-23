@@ -2,6 +2,8 @@ import torch
 from torch import nn
 from Net.basic import *
 from Net.defineViT import ViT
+# from monai.networks.nets import ViT
+from Net.poolformer import poolformer_s12
 from Net.nnMamba import nnMambaEncoder
 from Net.metaformer3D import poolformerv2_3d_s12
 import torch.nn.functional as F
@@ -661,6 +663,8 @@ class MetaFormerMriPet(nn.Module):
         self.name = 'MetaFormer_mri_pet'
         self.MriExtraction = poolformerv2_3d_s12(num_classes=500)
         self.PetExtraction = poolformerv2_3d_s12(num_classes=500)
+        # self.MriExtraction = poolformer_s12(num_classes=400)
+        # self.PetExtraction = poolformer_s12(num_classes=400)
         self.fc = nn.Sequential(
             nn.Linear(2 * 500, 256),
             nn.ReLU(),
