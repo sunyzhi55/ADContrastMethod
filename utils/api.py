@@ -154,20 +154,25 @@ def run_main_for_MDL(observer, epochs, train_loader, test_loader, model, device,
         train_bar = tqdm(train_loader, desc=f"Training Epoch {epoch + 1}, LR {current_lr:.6f}", unit="batch")
 
         for ii, batch in enumerate(train_bar):
-            gm_img_torch = batch.get("gm")
-            wm_img_torch = batch.get("wm")
+            # gm_img_torch = batch.get("gm")
+            # wm_img_torch = batch.get("wm")
+            mri_img_torch = batch.get("mri")
             pet_img_torch = batch.get("pet")
             label = batch.get("label")
-            if torch.isnan(gm_img_torch).any():
+            # if torch.isnan(gm_img_torch).any():
+            #     print("train: NaN detected in input mri_images")
+            # if torch.isnan(wm_img_torch).any():
+            #     print("train: NaN detected in input pet_images")
+            if torch.isnan(mri_img_torch).any():
                 print("train: NaN detected in input mri_images")
-            if torch.isnan(wm_img_torch).any():
-                print("train: NaN detected in input pet_images")
             if torch.isnan(pet_img_torch).any():
                 print("train: NaN detected in input pet_images")
-            gm_img_torch = gm_img_torch.to(device)
-            wm_img_torch = wm_img_torch.to(device)
+            # gm_img_torch = gm_img_torch.to(device)
+            # wm_img_torch = wm_img_torch.to(device)
+            mri_img_torch = mri_img_torch.to(device)
             pet_img_torch = pet_img_torch.to(device)
-            input_data = torch.concat([gm_img_torch, wm_img_torch, pet_img_torch], dim=1)
+            # input_data = torch.concat([gm_img_torch, wm_img_torch, pet_img_torch], dim=1)
+            input_data = torch.concat([mri_img_torch, pet_img_torch], dim=1)
             label = label.to(device)
             optimizer.zero_grad()
             outputs, roi_out = model(input_data)
@@ -183,14 +188,15 @@ def run_main_for_MDL(observer, epochs, train_loader, test_loader, model, device,
             model.eval()
             test_bar = tqdm(test_loader, desc=f"Evaluating Epoch {epoch + 1}", unit="batch")
             for i, batch in enumerate(test_bar):
-                gm_img_torch = batch.get("gm")
-                wm_img_torch = batch.get("wm")
+                # gm_img_torch = batch.get("gm")
+                # wm_img_torch = batch.get("wm")
+                mri_img_torch = batch.get("mri")
                 pet_img_torch = batch.get("pet")
                 label = batch.get("label")
-                gm_img_torch = gm_img_torch.to(device)
-                wm_img_torch = wm_img_torch.to(device)
+                mri_img_torch = mri_img_torch.to(device)
                 pet_img_torch = pet_img_torch.to(device)
-                input_data = torch.concat([gm_img_torch, wm_img_torch, pet_img_torch], dim=1)
+                # input_data = torch.concat([gm_img_torch, wm_img_torch, pet_img_torch], dim=1)
+                input_data = torch.concat([mri_img_torch, pet_img_torch], dim=1)
                 label = label.to(device)
                 outputs, roi_out = model(input_data)
                 loss = criterion(outputs, label)

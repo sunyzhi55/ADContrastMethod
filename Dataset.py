@@ -90,7 +90,7 @@ class MriPetCliDatasetWithTowLabel(Dataset):
             self.pet_dir = Path(pet_dir)
         self.cli_dir = pd.read_csv(cli_dir)
         self.labels_df = pd.read_csv(csv_file)  # 读取 CSV 文件
-        self.groups = {'CN': 0, 'MCI': 1, 'AD': 2,  'pMCI': 1, 'sMCI': 0}
+        self.groups = {'CN': 0, 'MCI': 1, 'AD': 1,  'pMCI': 1, 'sMCI': 0}
         self.valid_group = valid_group
         self.transform = transforms.Compose([
             Resize(resize_shape),
@@ -158,7 +158,7 @@ class MriPetCliDataset(Dataset):
             self.pet_dir = Path(pet_dir)
         self.cli_dir = pd.read_csv(cli_dir)
         self.labels_df = pd.read_csv(csv_file)  # 读取 CSV 文件
-        self.groups = {'CN': 0, 'MCI': 1, 'AD': 2,  'pMCI': 1, 'sMCI': 0}
+        self.groups = {'CN': 0, 'MCI': 1, 'AD': 1,  'pMCI': 1, 'sMCI': 0}
         self.valid_group = valid_group
         self.transform = transforms.Compose([
             Resize(resize_shape),
@@ -223,7 +223,7 @@ class MriPetDataset(Dataset):
         else:
             self.pet_dir = Path(pet_dir)
         self.labels_df = pd.read_csv(csv_file)  # 读取 CSV 文件
-        self.groups = {'CN': 0, 'MCI': 1, 'AD': 2,  'pMCI': 1, 'sMCI': 0}
+        self.groups = {'CN': 0, 'MCI': 1, 'AD': 1,  'pMCI': 1, 'sMCI': 0}
         self.valid_group = valid_group
         self.transform = transforms.Compose([
             Resize(resize_shape),
@@ -284,7 +284,7 @@ class MriDataset(Dataset):
         else:
             self.pet_dir = Path(pet_dir)
         self.labels_df = pd.read_csv(csv_file)  # 读取 CSV 文件
-        self.groups = {'CN': 0, 'MCI': 1, 'AD': 2,  'pMCI': 1, 'sMCI': 0}
+        self.groups = {'CN': 0, 'MCI': 1, 'AD': 1,  'pMCI': 1, 'sMCI': 0}
         self.valid_group = valid_group
         self.transform = transforms.Compose([
             Resize(resize_shape),
@@ -334,7 +334,7 @@ class MriCliDataset(Dataset):
         self.mri_dir = Path(mri_dir)
         self.cli_dir = pd.read_csv(cli_dir)
         self.labels_df = pd.read_csv(csv_file)  # 读取 CSV 文件
-        self.groups = {'CN': 0, 'MCI': 1, 'AD': 2,  'pMCI': 1, 'sMCI': 0}
+        self.groups = {'CN': 0, 'MCI': 1, 'AD': 1,  'pMCI': 1, 'sMCI': 0}
         self.valid_group = valid_group
         # self.only_tabular = False
         self.transform = transforms.Compose([
@@ -390,7 +390,7 @@ class GMWMPETDataset(Dataset):
         self.pet_dir = Path(pet_dir)
         self.cli_dir = pd.read_csv(cli_dir)
         self.labels_df = pd.read_csv(csv_file)  # 读取 CSV 文件
-        self.groups = {'CN': 0, 'MCI': 1, 'AD': 2,  'pMCI': 1, 'sMCI': 0}
+        self.groups = {'CN': 0, 'MCI': 1, 'AD': 1,  'pMCI': 1, 'sMCI': 0}
         self.valid_group = valid_group
         self.transform = transforms.Compose([
             Resize(resize_shape),

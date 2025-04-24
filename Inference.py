@@ -1,5 +1,6 @@
 import torch
 from torch.utils.data import DataLoader
+import time
 from Dataset import *
 from Net.ComparisonNet import HFBSurv, Interactive_Multimodal_Fusion_Model
 import numpy as np
@@ -128,7 +129,7 @@ def find_best_model_for_resnet(mri_dir, pet_dir, cli_dir, csv_file, batch_size, 
 
     plt.xlabel('False Positive Rate')
     plt.ylabel('True Positive Rate')
-    plt.title('ROC Curves for All Folds')
+    plt.title(f'Model {best_dict["name"]} ROC Curves for All Folds')
     plt.legend(loc='lower right')
 
     # 保存图片
@@ -237,7 +238,7 @@ def find_best_model_for_efficientNet(mri_dir, pet_dir, cli_dir, csv_file, batch_
 
     plt.xlabel('False Positive Rate')
     plt.ylabel('True Positive Rate')
-    plt.title('ROC Curves for All Folds')
+    plt.title(f'Model {best_dict["name"]} ROC Curves for All Folds')
     plt.legend(loc='lower right')
 
     # 保存图片
@@ -346,7 +347,7 @@ def find_best_model_for_vit(mri_dir, pet_dir, cli_dir, csv_file, batch_size, mod
 
     plt.xlabel('False Positive Rate')
     plt.ylabel('True Positive Rate')
-    plt.title('ROC Curves for All Folds')
+    plt.title(f'Model {best_dict["name"]} ROC Curves for All Folds')
     plt.legend(loc='lower right')
 
     # 保存图片
@@ -443,7 +444,7 @@ def find_best_model_for_poolformer(mri_dir, pet_dir, cli_dir, csv_file, batch_si
                  label=f'Fold {result["fold"]} (AUC = {result["auc"]:.3f})')
     plt.xlabel('False Positive Rate')
     plt.ylabel('True Positive Rate')
-    plt.title('ROC Curves for All Folds')
+    plt.title(f'Model {best_dict["name"]} ROC Curves for All Folds')
     plt.legend(loc='lower right')
     # 保存图片
     output_path = Path(save_image_path)
@@ -539,7 +540,7 @@ def find_best_model_for_nnMamba(mri_dir, pet_dir, cli_dir, csv_file, batch_size,
                  label=f'Fold {result["fold"]} (AUC = {result["auc"]:.3f})')
     plt.xlabel('False Positive Rate')
     plt.ylabel('True Positive Rate')
-    plt.title('ROC Curves for All Folds')
+    plt.title(f'Model {best_dict["name"]} ROC Curves for All Folds')
     plt.legend(loc='lower right')
     # 保存图片
     output_path = Path(save_image_path)
@@ -614,7 +615,7 @@ def find_best_model_for_VAPL(mri_dir, pet_dir, cli_dir, csv_file, batch_size, mo
             print(f"Warning: Could not determine fold number for {filename}, skipping")
             continue
         print(f"Evaluating fold {fold_num} model: {model_path.name}")
-        model = thenet(input_size=[37 * 45 * 37, 18 * 22 * 18, 9 * 11 * 9, 4 * 5 * 4],dims=[32, 64, 128, 256],
+        model = thenet(input_size=[32 * 42 * 32, 16 * 21 * 16, 8 * 10 * 8, 4 * 5 * 4],dims=[32, 64, 128, 256],
                            depths=[3, 3, 3, 3], num_heads=8, in_channels=1,
                            num_classes=num_classes).to(device)
         model.load_state_dict(torch.load(str(model_path), map_location=device))
@@ -637,7 +638,7 @@ def find_best_model_for_VAPL(mri_dir, pet_dir, cli_dir, csv_file, batch_size, mo
                  label=f'Fold {result["fold"]} (AUC = {result["auc"]:.3f})')
     plt.xlabel('False Positive Rate')
     plt.ylabel('True Positive Rate')
-    plt.title('ROC Curves for All Folds')
+    plt.title(f'Model {best_dict["name"]} ROC Curves for All Folds')
     plt.legend(loc='lower right')
     # 保存图片
     output_path = Path(save_image_path)
@@ -733,7 +734,7 @@ def find_best_model_for_hyperfusionNet(mri_dir, pet_dir, cli_dir, csv_file, batc
                  label=f'Fold {result["fold"]} (AUC = {result["auc"]:.3f})')
     plt.xlabel('False Positive Rate')
     plt.ylabel('True Positive Rate')
-    plt.title('ROC Curves for All Folds')
+    plt.title(f'Model {best_dict["name"]} ROC Curves for All Folds')
     plt.legend(loc='lower right')
     # 保存图片
     output_path = Path(save_image_path)
@@ -830,7 +831,7 @@ def find_best_model_for_IMF(mri_dir, pet_dir, cli_dir, csv_file, batch_size, mod
                  label=f'Fold {result["fold"]} (AUC = {result["auc"]:.3f})')
     plt.xlabel('False Positive Rate')
     plt.ylabel('True Positive Rate')
-    plt.title('ROC Curves for All Folds')
+    plt.title(f'Model {best_dict["name"]} ROC Curves for All Folds')
     plt.legend(loc='lower right')
     # 保存图片
     output_path = Path(save_image_path)
@@ -870,7 +871,7 @@ def find_best_model_for_HFBSurv(mri_dir, pet_dir, cli_dir, csv_file, batch_size,
     # 准备数据集
     dataset = MriPetCliDataset(mri_dir, pet_dir, cli_dir, csv_file,
                             resize_shape=experiment_settings['shape'], valid_group=experiment_settings['task'])
-    data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
+    data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=False, drop_last=True)
     # 使用Path对象
     model_dir = Path(model_dir)
     # 查找所有pth文件
@@ -926,7 +927,7 @@ def find_best_model_for_HFBSurv(mri_dir, pet_dir, cli_dir, csv_file, batch_size,
                  label=f'Fold {result["fold"]} (AUC = {result["auc"]:.3f})')
     plt.xlabel('False Positive Rate')
     plt.ylabel('True Positive Rate')
-    plt.title('ROC Curves for All Folds')
+    plt.title(f'Model {best_dict["name"]} ROC Curves for All Folds')
     plt.legend(loc='lower right')
     # 保存图片
     output_path = Path(save_image_path)
@@ -1022,7 +1023,7 @@ def find_best_model_for_ITCFN(mri_dir, pet_dir, cli_dir, csv_file, batch_size, m
                  label=f'Fold {result["fold"]} (AUC = {result["auc"]:.3f})')
     plt.xlabel('False Positive Rate')
     plt.ylabel('True Positive Rate')
-    plt.title('ROC Curves for All Folds')
+    plt.title(f'Model {best_dict["name"]} ROC Curves for All Folds')
     plt.legend(loc='lower right')
     # 保存图片
     output_path = Path(save_image_path)
@@ -1085,12 +1086,13 @@ if __name__ == '__main__':
     batch_size = 8
     experiment_settings = {
         'shape': (96, 128, 96),
-        'task': ('AD', 'MCI')
+        'task': ('CN', 'AD')
     }
     all_model_best = []
     # Resnet
-    resnet_model_dir = Path(r'/data3/wangchangmiao/shenxy/Code/AD/ad_mci_87/ad_mci/resnet')
+    resnet_model_dir = Path(r'/data3/wangchangmiao/shenxy/Code/AD/ad_cn_87/ad_cn/resnet')
     resnet_save_image_path = Path('./roc_curves_resnet.png')
+    start_time = time.time()
     # 获取最佳模型和所有结果
     best_dict_resnet, all_results_esnet = find_best_model_for_resnet(
         mri_dir, pet_dir, cli_dir, csv_file, batch_size, resnet_model_dir, device,
@@ -1100,7 +1102,7 @@ if __name__ == '__main__':
     )
     all_model_best.append(best_dict_resnet)
     # efficientNet
-    efficientNet_model_dir = Path(r'/data3/wangchangmiao/shenxy/Code/AD/ad_mci_87/ad_mci/efficientNet')
+    efficientNet_model_dir = Path(r'/data3/wangchangmiao/shenxy/Code/AD/ad_cn_87/ad_cn/efficientNet')
     efficientNet_save_image_path = Path('./roc_curves_efficientNet.png')
     # 获取最佳模型和所有结果
     best_dict_efficientNet, all_results_efficientNet = find_best_model_for_efficientNet(
@@ -1111,7 +1113,7 @@ if __name__ == '__main__':
     )
     all_model_best.append(best_dict_efficientNet)
     # vit
-    vit_model_dir = Path(r'/data3/wangchangmiao/shenxy/Code/AD/ad_mci_87/ad_mci/vit')
+    vit_model_dir = Path(r'/data3/wangchangmiao/shenxy/Code/AD/ad_cn_87/ad_cn/vit')
     vit_save_image_path = Path('./roc_curves_vit.png')
     # 获取最佳模型和所有结果
     best_dict_vit, all_results_vit = find_best_model_for_vit(
@@ -1122,7 +1124,7 @@ if __name__ == '__main__':
     )
     all_model_best.append(best_dict_vit)
     # poolformer
-    poolformer_model_dir = Path(r'/data3/wangchangmiao/shenxy/Code/AD/ad_mci_87/ad_mci/poolformer')
+    poolformer_model_dir = Path(r'/data3/wangchangmiao/shenxy/Code/AD/ad_cn_87/ad_cn/poolformer')
     poolformer_save_image_path = Path('./roc_curves_poolformer.png')
     # 获取最佳模型和所有结果
     best_dict_poolformer, all_results_poolformer = find_best_model_for_poolformer(
@@ -1133,7 +1135,7 @@ if __name__ == '__main__':
     )
     all_model_best.append(best_dict_poolformer)
     # nnMamba
-    nnMamba_model_dir = Path(r'/data3/wangchangmiao/shenxy/Code/AD/ad_mci_87/ad_mci/nnMamba')
+    nnMamba_model_dir = Path(r'/data3/wangchangmiao/shenxy/Code/AD/ad_cn_87/ad_cn/nnMamba')
     nnMamba_save_image_path = Path('./roc_curves_nnMamba.png')
     # 获取最佳模型和所有结果
     best_dict_nnMamba, all_results_nnMamba = find_best_model_for_nnMamba(
@@ -1145,10 +1147,10 @@ if __name__ == '__main__':
     all_model_best.append(best_dict_nnMamba)
     # VAPL
     experiment_settings_for_VAPL = {
-        'shape': (113, 137, 113),
-        'task': ('AD', 'CN')
+        'shape': (96, 128, 96),
+        'task': ('CN', 'AD')
     }
-    VAPL_model_dir = Path(r'/data3/wangchangmiao/shenxy/Code/AD/ad_mci_87/ad_mci/VAPL')
+    VAPL_model_dir = Path(r'/data3/wangchangmiao/shenxy/Code/AD/ad_cn_87/ad_cn/VAPL')
     VAPL_save_image_path = Path('./roc_curves_VAPL.png')
     # 获取最佳模型和所有结果
     best_dict_VAPL, all_results_VAPL = find_best_model_for_VAPL(
@@ -1159,7 +1161,7 @@ if __name__ == '__main__':
     )
     all_model_best.append(best_dict_VAPL)
     # hyperfusionNet
-    hyperfusionNet_model_dir = Path(r'/data3/wangchangmiao/shenxy/Code/AD/ad_mci_87/ad_mci/hyperfusionNet')
+    hyperfusionNet_model_dir = Path(r'/data3/wangchangmiao/shenxy/Code/AD/ad_cn_87/ad_cn/hyperfusionNet')
     hyperfusionNet_save_image_path = Path('./roc_curves_hyperfusionNet.png')
     # 获取最佳模型和所有结果
     best_dict_hyperfusionNet, all_results_hyperfusionNet = find_best_model_for_hyperfusionNet(
@@ -1170,7 +1172,7 @@ if __name__ == '__main__':
     )
     all_model_best.append(best_dict_hyperfusionNet)
     # IMF
-    IMF_model_dir = Path(r'/data3/wangchangmiao/shenxy/Code/AD/ad_mci_87/ad_mci/IMF')
+    IMF_model_dir = Path(r'/data3/wangchangmiao/shenxy/Code/AD/ad_cn_87/ad_cn/IMF')
     IMF_save_image_path = Path('./roc_curves_IMF.png')
     # 获取最佳模型和所有结果
     best_dict_IMF, all_results_IMF = find_best_model_for_IMF(
@@ -1181,7 +1183,7 @@ if __name__ == '__main__':
     )
     all_model_best.append(best_dict_IMF)
     # HFBSurv
-    HFBSurv_model_dir = Path(r'/data3/wangchangmiao/shenxy/Code/AD/ad_mci_87/ad_mci/HFBSurv')
+    HFBSurv_model_dir = Path(r'/data3/wangchangmiao/shenxy/Code/AD/ad_cn_87/ad_cn/HFBSurv')
     HFBSurv_save_image_path = Path('./roc_curves_HFBSurv.png')
     # 获取最佳模型和所有结果
     best_dict_HFBSurv, all_results_HFBSurv = find_best_model_for_HFBSurv(
@@ -1192,7 +1194,7 @@ if __name__ == '__main__':
     )
     all_model_best.append(best_dict_HFBSurv)
     # ITCFN
-    ITCFN_model_dir = Path(r'/data3/wangchangmiao/shenxy/Code/AD/ad_mci_87/ad_mci/ITCFN')
+    ITCFN_model_dir = Path(r'/data3/wangchangmiao/shenxy/Code/AD/ad_cn_87/ad_cn/ITCFN')
     ITCFN_save_image_path = Path('./roc_curves_ITCFN.png')
     # 获取最佳模型和所有结果
     best_dict_ITCFN, all_results_ITCFN = find_best_model_for_ITCFN(
@@ -1204,6 +1206,15 @@ if __name__ == '__main__':
     all_model_best.append(best_dict_ITCFN)
     # 调用函数绘制并保存ROC曲线
     plot_all_models_roc(all_model_best, save_path='./roc_comparison.png')
+    end_time = time.time()
+    use_time = end_time - start_time
+    # 计算小时、分钟和秒
+    hours = use_time // 3600
+    minutes = (use_time % 3600) // 60
+    seconds = use_time % 60
+    # 打印总训练时间
+    times_result = f'Total time: {hours}h {minutes}m {seconds}s'
+    print(times_result)
     """
     已知有一个all_model_best为list,里面存放着各种模型的k折交叉验证中最好的指标，
     每个元素的结构为所示        best_dict = {
