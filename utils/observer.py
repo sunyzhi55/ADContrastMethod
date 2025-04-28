@@ -212,5 +212,5 @@ class RuntimeObserver:
                        f"Best specificity : {self.best_dicts['Specificity']}, \n"
                        f"Best balance_acc : {self.best_dicts['BalanceAccuracy']},\n "
                        f"Best f1_score : {self.best_dicts['F1']},\n "
-                       f"Best AUC : {self.eval_auc}\n\n")
+                       f"Best AUC : {self.best_dicts['AuRoc']}\n\n")
         self.log(best_result)

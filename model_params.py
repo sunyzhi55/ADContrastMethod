@@ -1,4 +1,3 @@
-from torch.nn import CrossEntropyLoss
 from torch.optim import *
 from Net import *
 from MDL_Net.MDL_Net import generate_model
@@ -10,10 +9,11 @@ from vapformer.model_components import thenet
 from thop import profile, clever_format
 from Dataset import MriCliDataset
 from torch.utils.data import DataLoader
+from MultimodalADNet.multimodalNet import MultimodalADNet
 # from torchsummary import summary
 # compute the flops and params
 num_classes = 2
-device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 # Resnet
 mri_demo = torch.ones(1, 1, 96, 128, 96).to(device)
 pet_demo = torch.ones(1, 1, 96, 128, 96).to(device)
@@ -121,8 +121,10 @@ print(f"ITCFN:{params_result}")
 # MDL
 gm_demo = torch.ones(1, 1, 96, 128, 96).to(device)
 wm_demo = torch.ones(1, 1, 96, 128, 96).to(device)
+mri_demo = torch.ones(1, 1, 96, 128, 96).to(device)
 pet_demo = torch.ones(1, 1, 96, 128, 96).to(device)
-inputs = torch.cat([gm_demo, wm_demo, pet_demo], dim=1)
+inputs = torch.concat([mri_demo, pet_demo], dim=1)
+# inputs = torch.cat([gm_demo, wm_demo, pet_demo], dim=1)
 # print("inputs", inputs.shape)
 model_demo = generate_model(model_depth=18, in_planes=1, num_classes=num_classes).to(device)
 model_demo.eval()
@@ -133,36 +135,48 @@ print(f"MDL:{params_result}")
 
 
 # RLAD
-mri_demo = torch.ones(1, 1, 128, 128, 128).to(device)
-_, model_demo = get_model()
-model_demo.to(device)
-model_demo.eval()
-flops, params = profile(model_demo, inputs=(mri_demo, ), verbose=False)
-flops, params = clever_format([flops, params], "%.3f")
-params_result = f'flops: {flops}, params: {params}'
-print(f"RLAD:{params_result}")
+# mri_demo = torch.ones(1, 1, 128, 128, 128).to(device)
+# _, model_demo = get_model()
+# model_demo.to(device)
+# model_demo.eval()
+# flops, params = profile(model_demo, inputs=(mri_demo, ), verbose=False)
+# flops, params = clever_format([flops, params], "%.3f")
+# params_result = f'flops: {flops}, params: {params}'
+# print(f"RLAD:{params_result}")
+#
+# # HyperFusionNet
+# mri_dir = '/data3/wangchangmiao/shenxy/ADNI/ADNI1_2/MRI'
+# pet_dir = '/data3/wangchangmiao/shenxy/ADNI/ADNI1_2/PET'
+# cli_dir = './csv/ADNI_Clinical.csv'
+# csv_file = './csv/ADNI1_2_pmci_smci.csv'
+# experiment_settings = {
+#     'shape': (96, 128, 96),
+#     'task': ('pMCI', 'sMCI')
+# }
+# device = torch.device('cuda:2' if torch.cuda.is_available() else 'cpu')
+# dataset = MriCliDataset(mri_dir, pet_dir, cli_dir, csv_file,
+#                            resize_shape=experiment_settings['shape'],
+#                            valid_group=experiment_settings['task'])
+# dataloader = DataLoader(dataset, batch_size=505, shuffle=True, num_workers=0)
+# mri_demo = torch.ones(1, 1, 96, 128, 96)
+# cli_demo = torch.ones(1, 9)
+# model_demo = HyperFusion_AD(train_loader=dataloader, GPU=True, n_outputs=num_classes)
+# flops, params = profile(model_demo, inputs=((mri_demo, cli_demo),), verbose=False)
+# flops, params = clever_format([flops, params], "%.3f")
+# params_result = f'flops: {flops}, params: {params}'
+# print(f"HyperFusionNet:{params_result}")
 
-# HyperFusionNet
-mri_dir = '/data3/wangchangmiao/shenxy/ADNI/ADNI1_2/MRI'
-pet_dir = '/data3/wangchangmiao/shenxy/ADNI/ADNI1_2/PET'
-cli_dir = './csv/ADNI_Clinical.csv'
-csv_file = './csv/ADNI1_2_pmci_smci.csv'
-experiment_settings = {
-    'shape': (96, 128, 96),
-    'task': ('pMCI', 'sMCI')
-}
-device = torch.device('cuda:2' if torch.cuda.is_available() else 'cpu')
-dataset = MriCliDataset(mri_dir, pet_dir, cli_dir, csv_file,
-                           resize_shape=experiment_settings['shape'],
-                           valid_group=experiment_settings['task'])
-dataloader = DataLoader(dataset, batch_size=505, shuffle=True, num_workers=0)
-mri_demo = torch.ones(1, 1, 96, 128, 96)
-cli_demo = torch.ones(1, 9)
-model_demo = HyperFusion_AD(train_loader=dataloader, GPU=True, n_outputs=num_classes)
-flops, params = profile(model_demo, inputs=((mri_demo, cli_demo),), verbose=False)
+# MultimodalADNet
+net = MultimodalADNet(dim=64)
+mri = torch.randn(1, 1, 96, 128, 96)
+pet = torch.randn(1, 1, 96, 128, 96)
+tabular = torch.randn(1, 9)
+flops, params = profile(net, inputs=(mri, pet, tabular), verbose=False)
 flops, params = clever_format([flops, params], "%.3f")
 params_result = f'flops: {flops}, params: {params}'
-print(f"HyperFusionNet:{params_result}")
+print(f"MultimodalADNet:{params_result}")
+logits = net(mri, pet, tabular)
+print("Logits shape:", logits.shape)  # [2, 2]
 """
 Resnet:flops: 70.924G, params: 66.952M
 ViT:flops: 5.775G, params: 20.853M
@@ -175,6 +189,8 @@ HFBSurv:flops: 141.849G, params: 34.123M
 ITCFN:flops: 71.098G, params: 71.305M
 HyperFusionNet:flops: 47.750G, params: 15.402M
 MDL:flops: 9.353G, params: 2.827M
+MDL_two_inputs:flops: 19.243G, params: 10.707M
 RLAD:flops: 260.882G, params: 30.624M
+MultimodalADNet:flops: 20.307G, params: 4.302M
 AweSomeNet:flops: 10.517G, params: 17.405M
 """

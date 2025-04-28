@@ -94,6 +94,47 @@ def run_main_for_hfbsurve(observer, epochs, train_loader, test_loader, model, de
             break
     observer.finish(fold)
 
+def run_main_for_multimodalADNet(observer, epochs, train_loader, test_loader, model, device, optimizer, criterion, lr_scheduler, fold):
+    model = model.to(device)
+    print("start training")
+    for epoch in range(epochs):
+        print(f"Epoch: {epoch + 1}/{epochs}")
+        observer.reset()
+        model.train()
+        current_lr = optimizer.param_groups[0]['lr']
+        train_bar = tqdm(train_loader, desc=f"Training Epoch {epoch + 1}, LR {current_lr:.6f}", unit="batch")
+        for ii, batch in enumerate(train_bar):
+            mri_images = batch.get("mri").to(device)
+            pet_images = batch.get("pet").to(device)
+            cli_tab = batch.get("clinical").to(device)
+            label = batch.get("label").to(device)
+            optimizer.zero_grad()
+            outputs_logit = model(mri_images, pet_images, cli_tab)
+            loss = criterion(outputs_logit, label)
+            prob = torch.softmax(outputs_logit, dim=1)
+            _, predictions = torch.max(prob, dim=1)
+            loss.backward()
+            optimizer.step()
+            observer.train_update(loss, prob, predictions, label)
+        if lr_scheduler:
+            lr_scheduler.step()
+        with torch.no_grad():
+            model.eval()
+            test_bar = tqdm(test_loader, desc=f"Evaluating Epoch {epoch + 1}", unit="batch")
+            for i, batch in enumerate(test_bar):
+                mri_images = batch.get("mri").to(device)
+                pet_images = batch.get("pet").to(device)
+                cli_tab = batch.get("clinical").to(device)
+                label = batch.get("label").to(device)
+                outputs_logit = model(mri_images, pet_images, cli_tab)
+                loss = criterion(outputs_logit, label)
+                prob = torch.softmax(outputs_logit, dim=1)
+                _, predictions = torch.max(prob, dim=1)
+                observer.eval_update(loss, prob, predictions, label)
+        if observer.execute(epoch + 1, epochs, len(train_loader.dataset), len(test_loader.dataset), fold, model=model):
+            print("Early stopping")
+            break
+    observer.finish(fold)
 def run_main_for_IMF(observer, epochs, train_loader, test_loader, model, device, optimizer, criterion, lr_scheduler, fold):
     model = model.to(device)
     print("start training")
