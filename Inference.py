@@ -1,24 +1,14 @@
-import torch
-from torch.utils.data import DataLoader
 import time
 from Dataset import *
-from Net.ComparisonNet import HFBSurv, Interactive_Multimodal_Fusion_Model
 import numpy as np
-from PIL import Image  # 处理高质量图片
-from sklearn.metrics import roc_curve, auc
-
-from torch.nn import CrossEntropyLoss
-from torch.optim import *
 from Net import *
 from MDL_Net.MDL_Net import generate_model
-from RLAD_Net.taad import get_model
-
-
+from AweSomeNet.AweNet import AweSomeNet
 from HyperFusionNet.HyperFusion_AD_model import HyperFusion_AD
 from vapformer.model_components import thenet
-from thop import profile, clever_format
-
-from torch.utils.data import DataLoader
+from DiamondNet.DiaMond import DiaMond, Head
+from DiamondNet.regbn import RegBN
+from MultimodalADNet.multimodalNet import MultimodalADNet
 import matplotlib.pyplot as plt
 from pathlib import Path
 import torch
@@ -615,7 +605,7 @@ def find_best_model_for_VAPL(mri_dir, pet_dir, cli_dir, csv_file, batch_size, mo
             print(f"Warning: Could not determine fold number for {filename}, skipping")
             continue
         print(f"Evaluating fold {fold_num} model: {model_path.name}")
-        model = thenet(input_size=[32 * 42 * 32, 16 * 21 * 16, 8 * 10 * 8, 4 * 5 * 4],dims=[32, 64, 128, 256],
+        model = thenet(input_size=[37 * 45 * 37, 18 * 22 * 18, 9 * 11 * 9, 4 * 5 * 4],dims=[32, 64, 128, 256],
                            depths=[3, 3, 3, 3], num_heads=8, in_channels=1,
                            num_classes=num_classes).to(device)
         model.load_state_dict(torch.load(str(model_path), map_location=device))
@@ -645,6 +635,117 @@ def find_best_model_for_VAPL(mri_dir, pet_dir, cli_dir, csv_file, batch_size, mo
     plt.savefig(output_path, dpi=300, bbox_inches='tight')
     print(f"ROC curves saved to {output_path}")
     return best_dict, all_results
+
+
+def find_best_model_for_MDL(mri_dir, pet_dir, cli_dir, csv_file, batch_size, model_dir, device, save_image_path, experiment_settings, num_classes=2):
+    def evaluate_model(model, data_loader, device):
+        """评估单个模型并返回AUC值"""
+        model.to(device)
+        model.eval()
+        all_labels = []
+        all_probabilities = []
+        with torch.no_grad():
+            for batch_idx, batch in enumerate(data_loader):
+                mri_images = batch.get("mri").to(device)
+                pet_images = batch.get("pet").to(device)
+                label = batch.get("label").to(device)
+                mri_pet_images = torch.concat([mri_images, pet_images], dim=1)
+                outputs_logit, roi_ou = model(mri_pet_images)
+                prob = torch.softmax(outputs_logit, dim=1)
+                prob_positive = prob[:, 1]  # 获取正类的概率
+                all_probabilities.extend(prob_positive.cpu().numpy())
+                all_labels.extend(label.cpu().numpy())
+        fpr, tpr, _ = roc_curve(all_labels, all_probabilities)
+        roc_auc = auc(fpr, tpr)
+        result_dict = {
+            'auc': roc_auc,
+            'fpr': fpr,
+            'tpr': tpr,
+            # 'labels': all_labels,
+            # 'probs': all_probabilities
+        }
+        return result_dict
+
+    """查找并评估所有fold模型，返回最佳模型"""
+
+    # 准备数据集
+    dataset = MriPetDataset(mri_dir, pet_dir, cli_dir, csv_file,
+                            resize_shape=experiment_settings['shape'], valid_group=experiment_settings['task'])
+    data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
+
+    # 使用Path对象
+    model_dir = Path(model_dir)
+    # 查找所有pth文件
+    model_files = list(model_dir.glob('*fold*.pth'))
+    if not model_files:
+        raise ValueError(f"No model files found in {model_dir} with pattern '*fold*.pth'")
+
+    # 存储所有折的结果
+    all_results = []
+    best_dict = {
+        "name": "MDL",
+        "auc": -1,
+        "fpr": None,
+        "tpr": None,
+        "fold": 0
+    }
+
+    # 评估每个模型
+    for model_path in model_files:
+        # 从文件名中提取fold编号
+        filename = model_path.name.lower()
+        fold_num = None
+        if 'fold1' in filename:
+            fold_num = 1
+        elif 'fold2' in filename:
+            fold_num = 2
+        elif 'fold3' in filename:
+            fold_num = 3
+        elif 'fold4' in filename:
+            fold_num = 4
+        elif 'fold5' in filename:
+            fold_num = 5
+
+        if fold_num is None:
+            print(f"Warning: Could not determine fold number for {filename}, skipping")
+            continue
+
+        print(f"Evaluating fold {fold_num} model: {model_path.name}")
+        model = generate_model(model_depth=18, in_planes=1, num_classes=num_classes)
+        model.load_state_dict(torch.load(str(model_path), map_location=device))
+        result_dict = evaluate_model(model, data_loader, device)
+        result_dict['fold'] = fold_num
+        all_results.append(result_dict)
+        print(f"Fold {fold_num} AUC: {result_dict['auc']:.4f}")
+
+        if result_dict["auc"] > best_dict["auc"]:
+            best_dict['auc'] = result_dict['auc']
+            best_dict['fpr'] = result_dict['fpr']
+            best_dict['tpr'] = result_dict['tpr']
+            best_dict["fold"] = fold_num
+
+    # 绘制所有折的ROC曲线
+    plt.figure(figsize=(10, 8))
+    plt.plot([0, 1], [0, 1], 'k--', label='Random chance')
+
+    colors = ['blue', 'green', 'red', 'cyan', 'magenta']
+    for i, result in enumerate(all_results):
+        plt.plot(result['fpr'], result['tpr'],
+                 color=colors[i],
+                 label=f'Fold {result["fold"]} (AUC = {result["auc"]:.3f})')
+
+    plt.xlabel('False Positive Rate')
+    plt.ylabel('True Positive Rate')
+    plt.title(f'Model {best_dict["name"]} ROC Curves for All Folds')
+    plt.legend(loc='lower right')
+
+    # 保存图片
+    output_path = Path(save_image_path)
+    plt.savefig(output_path, dpi=300, bbox_inches='tight')
+    print(f"ROC curves saved to {output_path}")
+
+    return best_dict, all_results
+
 
 def find_best_model_for_hyperfusionNet(mri_dir, pet_dir, cli_dir, csv_file, batch_size, model_dir, device, save_image_path, experiment_settings, num_classes=2):
     def evaluate_model(model, data_loader, device):
@@ -1032,6 +1133,391 @@ def find_best_model_for_ITCFN(mri_dir, pet_dir, cli_dir, csv_file, batch_size, m
     return best_dict, all_results
 
 
+def find_best_model_for_MultimodalADNet(mri_dir, pet_dir, cli_dir, csv_file, batch_size, model_dir, device, save_image_path, experiment_settings, num_classes=2):
+    def evaluate_model(model, data_loader, device):
+        """评估单个模型并返回AUC值"""
+        model.to(device)
+        model.eval()
+        all_labels = []
+        all_probabilities = []
+        with torch.no_grad():
+            for batch_idx, batch in enumerate(data_loader):
+                mri_images = batch.get("mri").to(device)
+                pet_images = batch.get("pet").to(device)
+                cli_tab = batch.get("clinical").to(device)
+                label = batch.get("label").to(device)
+                outputs_logit = model(mri_images, pet_images, cli_tab)
+                prob = torch.softmax(outputs_logit, dim=1)
+                prob_positive = prob[:, 1]  # 获取正类的概率
+                all_probabilities.extend(prob_positive.cpu().numpy())
+                all_labels.extend(label.cpu().numpy())
+        fpr, tpr, _ = roc_curve(all_labels, all_probabilities)
+        roc_auc = auc(fpr, tpr)
+        result_dict = {
+            'auc': roc_auc,
+            'fpr': fpr,
+            'tpr': tpr,
+            # 'labels': all_labels,
+            # 'probs': all_probabilities
+        }
+        return result_dict
+    """查找并评估所有fold模型，返回最佳模型"""
+    # 准备数据集
+    dataset = MriPetCliDataset(mri_dir, pet_dir, cli_dir, csv_file,
+                            resize_shape=experiment_settings['shape'], valid_group=experiment_settings['task'])
+    data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
+    # 使用Path对象
+    model_dir = Path(model_dir)
+    # 查找所有pth文件
+    model_files = list(model_dir.glob('*fold*.pth'))
+    if not model_files:
+        raise ValueError(f"No model files found in {model_dir} with pattern '*fold*.pth'")
+    # 存储所有折的结果
+    all_results = []
+    best_dict = {
+        "name": "MultimodalADNet",
+        "auc": -1,
+        "fpr": None,
+        "tpr": None,
+        "fold": 0
+    }
+    # 评估每个模型
+    for model_path in model_files:
+        # 从文件名中提取fold编号
+        filename = model_path.name.lower()
+        fold_num = None
+        if 'fold1' in filename:
+            fold_num = 1
+        elif 'fold2' in filename:
+            fold_num = 2
+        elif 'fold3' in filename:
+            fold_num = 3
+        elif 'fold4' in filename:
+            fold_num = 4
+        elif 'fold5' in filename:
+            fold_num = 5
+        if fold_num is None:
+            print(f"Warning: Could not determine fold number for {filename}, skipping")
+            continue
+        print(f"Evaluating fold {fold_num} model: {model_path.name}")
+        model = MultimodalADNet(num_classes=num_classes, dim=64)
+        model.load_state_dict(torch.load(str(model_path), map_location=device))
+        result_dict = evaluate_model(model, data_loader, device)
+        result_dict['fold'] = fold_num
+        all_results.append(result_dict)
+        print(f"Fold {fold_num} AUC: {result_dict['auc']:.4f}")
+        if result_dict["auc"] > best_dict["auc"]:
+            best_dict['auc'] = result_dict['auc']
+            best_dict['fpr'] = result_dict['fpr']
+            best_dict['tpr'] = result_dict['tpr']
+            best_dict["fold"] = fold_num
+    # 绘制所有折的ROC曲线
+    plt.figure(figsize=(10, 8))
+    plt.plot([0, 1], [0, 1], 'k--', label='Random chance')
+    colors = ['blue', 'green', 'red', 'cyan', 'magenta']
+    for i, result in enumerate(all_results):
+        plt.plot(result['fpr'], result['tpr'],
+                 color=colors[i],
+                 label=f'Fold {result["fold"]} (AUC = {result["auc"]:.3f})')
+    plt.xlabel('False Positive Rate')
+    plt.ylabel('True Positive Rate')
+    plt.title(f'Model {best_dict["name"]} ROC Curves for All Folds')
+    plt.legend(loc='lower right')
+    # 保存图片
+    output_path = Path(save_image_path)
+    plt.savefig(output_path, dpi=300, bbox_inches='tight')
+    print(f"ROC curves saved to {output_path}")
+    return best_dict, all_results
+def find_best_model_for_diamond(mri_dir, pet_dir, cli_dir, csv_file, batch_size, model_dir, device, save_image_path, experiment_settings, num_classes=2):
+    def evaluate_model(model, data_loader, device):
+        """评估单个模型并返回AUC值"""
+        model.to(device)
+        model.eval()
+        all_labels = []
+        all_probabilities = []
+        with torch.no_grad():
+            # for batch_idx, batch in enumerate(data_loader):
+            for batch_idx, batch in enumerate(data_loader):
+                mri_images = batch.get("mri").to(device)
+                pet_images = batch.get("pet").to(device)
+                label = batch.get("label").to(device)
+                # mri_pet_images = torch.concat([mri_images, pet_images], dim=1)
+                # pet_images = pet_images.to(device)
+                # mri_images = mri_images.to(device)
+                # label = label.to(device)
+                outputs = model(pet_images, mri_images)
+                outputs.squeeze(1)
+                # prob_positive = prob[:, 1]  # 获取正类的概率
+                all_probabilities.extend(outputs.cpu().numpy())
+                all_labels.extend(label.cpu().numpy())
+        fpr, tpr, _ = roc_curve(all_labels, all_probabilities)
+        roc_auc = auc(fpr, tpr)
+        result_dict = {
+            'auc': roc_auc,
+            'fpr': fpr,
+            'tpr': tpr,
+            # 'labels': all_labels,
+            # 'probs': all_probabilities
+        }
+        return result_dict
+
+    """查找并评估所有fold模型，返回最佳模型"""
+
+    # 准备数据集
+    dataset = MriPetDatasetForDiamond(mri_dir, pet_dir, cli_dir, csv_file,
+                            is_training=False,
+                            valid_group=experiment_settings['task'])
+    data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=False, drop_last=True)
+
+    # 使用Path对象
+    model_dir = Path(model_dir)
+    # 查找所有pth文件
+    model_files = list(model_dir.glob('*bestval.pt'))
+    if not model_files:
+        raise ValueError(f"No model files found in {model_dir} with pattern '*bestval.pth'")
+
+    # 存储所有折的结果
+    all_results = []
+    best_dict = {
+        "name": "Diamond",
+        "auc": -1,
+        "fpr": None,
+        "tpr": None,
+        "fold": 0
+    }
+
+    # 评估每个模型
+    for model_path in model_files:
+        # 从文件名中提取fold编号
+        filename = model_path.name.lower()
+        fold_num = None
+        if 'split1' in filename:
+            fold_num = 1
+        elif 'split2' in filename:
+            fold_num = 2
+        elif 'split3' in filename:
+            fold_num = 3
+        elif 'split4' in filename:
+            fold_num = 4
+        elif 'split5' in filename:
+            fold_num = 5
+
+        if fold_num is None:
+            print(f"Warning: Could not determine fold number for {filename}, skipping")
+            continue
+
+        print(f"Evaluating fold {fold_num} model: {model_path.name}")
+        # model = ResnetMriPet(num_classes=num_classes)
+        # model.load_state_dict(torch.load(str(model_path), map_location=device))
+
+        diamond = DiaMond()
+        regbn_kwargs = {
+            'gpu': 0,
+            'f_num_channels': 192 if num_classes == 3 else 128,
+            'g_num_channels': 192 if num_classes == 3 else 128,
+            'f_layer_dim': [],
+            'g_layer_dim': [],
+            'normalize_input': True,
+            'normalize_output': True,
+            'affine': True,
+            'sigma_THR': 0.0,
+            'sigma_MIN': 0.0,
+        }
+        # 创建完整模型
+        model = CompleteModel(diamond, regbn_kwargs, num_classes, device=device,
+                              checkpoint_path=model_path).to(device)
+        result_dict = evaluate_model(model, data_loader, device)
+        result_dict['fold'] = fold_num
+        all_results.append(result_dict)
+        print(f"Fold {fold_num} AUC: {result_dict['auc']:.4f}")
+
+        if result_dict["auc"] > best_dict["auc"]:
+            best_dict['auc'] = result_dict['auc']
+            best_dict['fpr'] = result_dict['fpr']
+            best_dict['tpr'] = result_dict['tpr']
+            best_dict["fold"] = fold_num
+
+    print("\nBest model results:")
+    print(f"Fold: {best_dict['fold']}")
+    print(f"AUC: {best_dict['auc']:.4f}")
+
+    # 绘制所有折的ROC曲线
+    plt.figure(figsize=(10, 8))
+    plt.plot([0, 1], [0, 1], 'k--', label='Random chance')
+
+    colors = ['blue', 'green', 'red', 'cyan', 'magenta']
+    for i, result in enumerate(all_results):
+        plt.plot(result['fpr'], result['tpr'],
+                 color=colors[i],
+                 label=f'Fold {result["fold"]} (AUC = {result["auc"]:.3f})')
+
+    plt.xlabel('False Positive Rate')
+    plt.ylabel('True Positive Rate')
+    plt.title(f'Model {best_dict["name"]} ROC Curves for All Folds')
+    plt.legend(loc='lower right')
+
+    # 保存图片
+    output_path = Path(save_image_path)
+    plt.savefig(output_path, dpi=300, bbox_inches='tight')
+    print(f"ROC curves saved to {output_path}")
+
+    return best_dict, all_results
+
+class CompleteModel(nn.Module):
+    def __init__(self, diamond, regbn_kwargs, num_classes=2, device='cuda:2', checkpoint_path=None):
+        super(CompleteModel, self).__init__()
+        checkpoint = torch.load(checkpoint_path, map_location=device) if checkpoint_path else None
+        # 初始化各子模型
+        body_model= diamond.body_all(
+            modality="multi",
+            block_size=32,
+            image_size=128,
+            patch_size=8,
+            num_classes=num_classes,
+            channels=1,
+            dim=512,
+            depth=4,
+            heads=8,
+            dropout=0.0,
+            mlp_dim=309
+        )
+
+        [m.load_state_dict(checkpoint['model_state_dict'][i]) for i, m in enumerate(body_model)]
+        body_model = [m.to(device) for m in body_model]
+
+        self.model_pet, self.model_mri, self.model_mp = body_model
+
+        self.head = diamond.head(
+            block_size=32,
+            image_size=128,
+            num_classes=num_classes,
+            channels=1,
+        )
+        self.head.load_state_dict(checkpoint['head_state_dict'])
+        self.head.to(device)
+
+        self.regbn = RegBN(**regbn_kwargs).to(device)
+
+        self.kwargs_regbn_train = {"is_training": False}
+
+    def forward(self, pet_input, mri_input):
+        # PET分支
+        output_pet = self.model_pet(pet_input)
+
+        # MRI分支
+        output_mri = self.model_mri(mri_input)
+
+        # RegBN处理
+        output_pet, output_mri = self.regbn(output_pet, output_mri, **self.kwargs_regbn_train)
+
+        # 多模态融合分支
+        output_mp = self.model_mp(pet_input, mri_input)
+
+        # 三路输出融合
+        output = (output_pet + output_mri + output_mp) / 3
+
+        # Head处理
+        output = self.head(output)
+
+        return output
+
+
+
+def find_best_model_for_AwesomeNet(mri_dir, pet_dir, cli_dir, csv_file, batch_size, model_dir, device, save_image_path, experiment_settings, num_classes=2):
+    def evaluate_model(model, data_loader, device):
+        """评估单个模型并返回AUC值"""
+        model.to(device)
+        model.eval()
+        all_labels = []
+        all_probabilities = []
+        with torch.no_grad():
+            for batch_idx, batch in enumerate(data_loader):
+                mri_images = batch.get("mri").to(device)
+                pet_images = batch.get("pet").to(device)
+                cli_tab = batch.get("clinical").to(device)
+                label = batch.get("label").to(device)
+                outputs_logit = model(mri_images, pet_images, cli_tab)
+                prob = torch.softmax(outputs_logit, dim=1)
+                prob_positive = prob[:, 1]  # 获取正类的概率
+                all_probabilities.extend(prob_positive.cpu().numpy())
+                all_labels.extend(label.cpu().numpy())
+        fpr, tpr, _ = roc_curve(all_labels, all_probabilities)
+        roc_auc = auc(fpr, tpr)
+        result_dict = {
+            'auc': roc_auc,
+            'fpr': fpr,
+            'tpr': tpr,
+            # 'labels': all_labels,
+            # 'probs': all_probabilities
+        }
+        return result_dict
+    """查找并评估所有fold模型，返回最佳模型"""
+    # 准备数据集
+    dataset = MriPetCliDataset(mri_dir, pet_dir, cli_dir, csv_file,
+                            resize_shape=experiment_settings['shape'], valid_group=experiment_settings['task'])
+    data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
+    # 使用Path对象
+    model_dir = Path(model_dir)
+    # 查找所有pth文件
+    model_files = list(model_dir.glob('*fold*.pth'))
+    if not model_files:
+        raise ValueError(f"No model files found in {model_dir} with pattern '*fold*.pth'")
+    # 存储所有折的结果
+    all_results = []
+    best_dict = {
+        "name": "AweSomeNet",
+        "auc": -1,
+        "fpr": None,
+        "tpr": None,
+        "fold": 0
+    }
+    # 评估每个模型
+    for model_path in model_files:
+        # 从文件名中提取fold编号
+        filename = model_path.name.lower()
+        fold_num = None
+        if 'fold1' in filename:
+            fold_num = 1
+        elif 'fold2' in filename:
+            fold_num = 2
+        elif 'fold3' in filename:
+            fold_num = 3
+        elif 'fold4' in filename:
+            fold_num = 4
+        elif 'fold5' in filename:
+            fold_num = 5
+        if fold_num is None:
+            print(f"Warning: Could not determine fold number for {filename}, skipping")
+            continue
+        print(f"Evaluating fold {fold_num} model: {model_path.name}")
+        model = AweSomeNet(num_classes=num_classes)
+        model.load_state_dict(torch.load(str(model_path), map_location=device))
+        result_dict = evaluate_model(model, data_loader, device)
+        result_dict['fold'] = fold_num
+        all_results.append(result_dict)
+        print(f"Fold {fold_num} AUC: {result_dict['auc']:.4f}")
+        if result_dict["auc"] > best_dict["auc"]:
+            best_dict['auc'] = result_dict['auc']
+            best_dict['fpr'] = result_dict['fpr']
+            best_dict['tpr'] = result_dict['tpr']
+            best_dict["fold"] = fold_num
+    # 绘制所有折的ROC曲线
+    plt.figure(figsize=(10, 8))
+    plt.plot([0, 1], [0, 1], 'k--', label='Random chance')
+    colors = ['blue', 'green', 'red', 'cyan', 'magenta']
+    for i, result in enumerate(all_results):
+        plt.plot(result['fpr'], result['tpr'],
+                 color=colors[i],
+                 label=f'Fold {result["fold"]} (AUC = {result["auc"]:.3f})')
+    plt.xlabel('False Positive Rate')
+    plt.ylabel('True Positive Rate')
+    plt.title(f'Model {best_dict["name"]} ROC Curves for All Folds')
+    plt.legend(loc='lower right')
+    # 保存图片
+    output_path = Path(save_image_path)
+    plt.savefig(output_path, dpi=300, bbox_inches='tight')
+    print(f"ROC curves saved to {output_path}")
+    return best_dict, all_results
 def plot_all_models_roc(all_model_best, save_path='./all_models_roc_curves.png'):
     """
     绘制所有模型的ROC曲线并保存为图片
@@ -1086,23 +1572,26 @@ if __name__ == '__main__':
     batch_size = 8
     experiment_settings = {
         'shape': (96, 128, 96),
-        'task': ('CN', 'AD')
+        'task': ('MCI', 'CN')
     }
     all_model_best = []
-    # Resnet
-    resnet_model_dir = Path(r'/data3/wangchangmiao/shenxy/Code/AD/ad_cn_87/ad_cn/resnet')
-    resnet_save_image_path = Path('./roc_curves_resnet.png')
     start_time = time.time()
+
+    # Resnet
+    resnet_model_dir = Path(r'/data3/wangchangmiao/shenxy/Code/AD/mci_cn_86/mci_cn/resnet')
+    resnet_save_image_path = Path('./roc_curves_resnet.png')
     # 获取最佳模型和所有结果
-    best_dict_resnet, all_results_esnet = find_best_model_for_resnet(
+    best_dict_resnet, all_results_resnet = find_best_model_for_resnet(
         mri_dir, pet_dir, cli_dir, csv_file, batch_size, resnet_model_dir, device,
         save_image_path = resnet_save_image_path,
         experiment_settings = experiment_settings,
         num_classes=2
     )
+    print(f"model:{best_dict_resnet['name']} Fold result")
+    print(f"{all_results_resnet}")
     all_model_best.append(best_dict_resnet)
     # efficientNet
-    efficientNet_model_dir = Path(r'/data3/wangchangmiao/shenxy/Code/AD/ad_cn_87/ad_cn/efficientNet')
+    efficientNet_model_dir = Path(r'/data3/wangchangmiao/shenxy/Code/AD/mci_cn_86/mci_cn/efficientNet')
     efficientNet_save_image_path = Path('./roc_curves_efficientNet.png')
     # 获取最佳模型和所有结果
     best_dict_efficientNet, all_results_efficientNet = find_best_model_for_efficientNet(
@@ -1111,9 +1600,11 @@ if __name__ == '__main__':
         experiment_settings=experiment_settings,
         num_classes=2
     )
+    print(f"model:{best_dict_efficientNet['name']} Fold result")
+    print(f"{all_results_efficientNet}")
     all_model_best.append(best_dict_efficientNet)
     # vit
-    vit_model_dir = Path(r'/data3/wangchangmiao/shenxy/Code/AD/ad_cn_87/ad_cn/vit')
+    vit_model_dir = Path(r'/data3/wangchangmiao/shenxy/Code/AD/mci_cn_86/mci_cn/vit')
     vit_save_image_path = Path('./roc_curves_vit.png')
     # 获取最佳模型和所有结果
     best_dict_vit, all_results_vit = find_best_model_for_vit(
@@ -1122,9 +1613,11 @@ if __name__ == '__main__':
         experiment_settings=experiment_settings,
         num_classes=2
     )
+    print(f"model:{best_dict_vit['name']} Fold result")
+    print(f"{all_results_vit}")
     all_model_best.append(best_dict_vit)
     # poolformer
-    poolformer_model_dir = Path(r'/data3/wangchangmiao/shenxy/Code/AD/ad_cn_87/ad_cn/poolformer')
+    poolformer_model_dir = Path(r'/data3/wangchangmiao/shenxy/Code/AD/mci_cn_86/mci_cn/poolformer')
     poolformer_save_image_path = Path('./roc_curves_poolformer.png')
     # 获取最佳模型和所有结果
     best_dict_poolformer, all_results_poolformer = find_best_model_for_poolformer(
@@ -1133,9 +1626,11 @@ if __name__ == '__main__':
         experiment_settings=experiment_settings,
         num_classes=2
     )
+    print(f"model:{best_dict_poolformer['name']} Fold result")
+    print(f"{all_results_poolformer}")
     all_model_best.append(best_dict_poolformer)
     # nnMamba
-    nnMamba_model_dir = Path(r'/data3/wangchangmiao/shenxy/Code/AD/ad_cn_87/ad_cn/nnMamba')
+    nnMamba_model_dir = Path(r'/data3/wangchangmiao/shenxy/Code/AD/mci_cn_86/mci_cn/nnMamba')
     nnMamba_save_image_path = Path('./roc_curves_nnMamba.png')
     # 获取最佳模型和所有结果
     best_dict_nnMamba, all_results_nnMamba = find_best_model_for_nnMamba(
@@ -1144,13 +1639,15 @@ if __name__ == '__main__':
         experiment_settings=experiment_settings,
         num_classes=2
     )
+    print(f"model:{best_dict_nnMamba['name']} Fold result")
+    print(f"{all_results_nnMamba}")
     all_model_best.append(best_dict_nnMamba)
     # VAPL
     experiment_settings_for_VAPL = {
-        'shape': (96, 128, 96),
-        'task': ('CN', 'AD')
+        'shape': (113, 137, 113),
+        'task': ('MCI', 'CN')
     }
-    VAPL_model_dir = Path(r'/data3/wangchangmiao/shenxy/Code/AD/ad_cn_87/ad_cn/VAPL')
+    VAPL_model_dir = Path(r'/data3/wangchangmiao/shenxy/Code/AD/mci_cn_86/mci_cn/VAPL')
     VAPL_save_image_path = Path('./roc_curves_VAPL.png')
     # 获取最佳模型和所有结果
     best_dict_VAPL, all_results_VAPL = find_best_model_for_VAPL(
@@ -1159,9 +1656,11 @@ if __name__ == '__main__':
         experiment_settings=experiment_settings_for_VAPL,
         num_classes=2
     )
+    print(f"model:{best_dict_VAPL['name']} Fold result")
+    print(f"{all_results_VAPL}")
     all_model_best.append(best_dict_VAPL)
     # hyperfusionNet
-    hyperfusionNet_model_dir = Path(r'/data3/wangchangmiao/shenxy/Code/AD/ad_cn_87/ad_cn/hyperfusionNet')
+    hyperfusionNet_model_dir = Path(r'/data3/wangchangmiao/shenxy/Code/AD/mci_cn_86/mci_cn/hyperfusionNet')
     hyperfusionNet_save_image_path = Path('./roc_curves_hyperfusionNet.png')
     # 获取最佳模型和所有结果
     best_dict_hyperfusionNet, all_results_hyperfusionNet = find_best_model_for_hyperfusionNet(
@@ -1170,9 +1669,36 @@ if __name__ == '__main__':
         experiment_settings=experiment_settings,
         num_classes=2
     )
+    print(f"model:{best_dict_hyperfusionNet['name']} Fold result")
+    print(f"{all_results_hyperfusionNet}")
     all_model_best.append(best_dict_hyperfusionNet)
+    # Diamond
+    diamond_model_dir = Path(r'/data3/wangchangmiao/shenxy/Code/AD/DiaMond/mci_cn')
+    diamond_save_image_path = Path('./roc_curves_diamond.png')
+    best_dict_diamond, all_results_diamond = find_best_model_for_diamond(
+        mri_dir, pet_dir, cli_dir, csv_file, batch_size, diamond_model_dir, device,
+        save_image_path=diamond_save_image_path,
+        experiment_settings=experiment_settings,
+        num_classes=2
+    )
+    print(f"model:{best_dict_diamond['name']} Fold result")
+    print(f"{all_results_diamond}")
+    all_model_best.append(best_dict_diamond)
+    # MDL
+    MDL_model_dir = Path(r'/data3/wangchangmiao/shenxy/Code/AD/mci_cn_86/mci_cn/MDL')
+    IMF_save_image_path = Path('./roc_curves_MDL.png')
+    # 获取最佳模型和所有结果
+    best_dict_MDL, all_results_MDL = find_best_model_for_MDL(
+        mri_dir, pet_dir, cli_dir, csv_file, batch_size, MDL_model_dir, device,
+        save_image_path = IMF_save_image_path,
+        experiment_settings=experiment_settings,
+        num_classes=2
+    )
+    print(f"model:{best_dict_MDL['name']} Fold result")
+    print(f"{all_results_MDL}")
+    all_model_best.append(best_dict_MDL)
     # IMF
-    IMF_model_dir = Path(r'/data3/wangchangmiao/shenxy/Code/AD/ad_cn_87/ad_cn/IMF')
+    IMF_model_dir = Path(r'/data3/wangchangmiao/shenxy/Code/AD/mci_cn_86/mci_cn/IMF')
     IMF_save_image_path = Path('./roc_curves_IMF.png')
     # 获取最佳模型和所有结果
     best_dict_IMF, all_results_IMF = find_best_model_for_IMF(
@@ -1181,9 +1707,11 @@ if __name__ == '__main__':
         experiment_settings=experiment_settings,
         num_classes=2
     )
+    print(f"model:{best_dict_IMF['name']} Fold result")
+    print(f"{all_results_IMF}")
     all_model_best.append(best_dict_IMF)
     # HFBSurv
-    HFBSurv_model_dir = Path(r'/data3/wangchangmiao/shenxy/Code/AD/ad_cn_87/ad_cn/HFBSurv')
+    HFBSurv_model_dir = Path(r'/data3/wangchangmiao/shenxy/Code/AD/mci_cn_86/mci_cn/HFBSurv')
     HFBSurv_save_image_path = Path('./roc_curves_HFBSurv.png')
     # 获取最佳模型和所有结果
     best_dict_HFBSurv, all_results_HFBSurv = find_best_model_for_HFBSurv(
@@ -1192,9 +1720,11 @@ if __name__ == '__main__':
         experiment_settings=experiment_settings,
         num_classes=2
     )
+    print(f"model:{best_dict_HFBSurv['name']} Fold result")
+    print(f"{all_results_HFBSurv}")
     all_model_best.append(best_dict_HFBSurv)
     # ITCFN
-    ITCFN_model_dir = Path(r'/data3/wangchangmiao/shenxy/Code/AD/ad_cn_87/ad_cn/ITCFN')
+    ITCFN_model_dir = Path(r'/data3/wangchangmiao/shenxy/Code/AD/mci_cn_86/mci_cn/ITCFN')
     ITCFN_save_image_path = Path('./roc_curves_ITCFN.png')
     # 获取最佳模型和所有结果
     best_dict_ITCFN, all_results_ITCFN = find_best_model_for_ITCFN(
@@ -1203,7 +1733,34 @@ if __name__ == '__main__':
         experiment_settings=experiment_settings,
         num_classes=2
     )
+    print(f"model:{best_dict_ITCFN['name']} Fold result")
+    print(f"{all_results_ITCFN}")
     all_model_best.append(best_dict_ITCFN)
+    # MultimodalADNet
+    MultimodalADNet_model_dir = Path(r'/data3/wangchangmiao/shenxy/Code/AD/mci_cn_86/mci_cn/MultimodalADNet')
+    MultimodalADNet_save_image_path = Path('./roc_curves_MultimodalADNet.png')
+    best_dict_MultimodalADNet, all_results_MultimodalADNet = find_best_model_for_MultimodalADNet(
+        mri_dir, pet_dir, cli_dir, csv_file, batch_size, MultimodalADNet_model_dir, device,
+        save_image_path = MultimodalADNet_save_image_path,
+        experiment_settings=experiment_settings,
+        num_classes=2
+    )
+    print(f"model:{best_dict_MultimodalADNet['name']} Fold result")
+    print(f"{all_results_MultimodalADNet}")
+    all_model_best.append(best_dict_MultimodalADNet)
+    # AweSomeNet
+    AwesomeNet_model_dir = Path(r'/data3/wangchangmiao/shenxy/Code/AD/AweSome/AwesomeNetFinal_lr00001/mci_cn')
+    AwesomeNet_save_image_path = Path('./roc_curves_AwesomeNet.png')
+    best_dict_AwesomeNet, all_results_AwesomeNet = find_best_model_for_AwesomeNet(
+        mri_dir, pet_dir, cli_dir, csv_file, batch_size, AwesomeNet_model_dir, device,
+        save_image_path=AwesomeNet_save_image_path,
+        experiment_settings=experiment_settings,
+        num_classes=2
+    )
+    print(f"model:{best_dict_AwesomeNet['name']} Fold result")
+    print(f"{all_results_AwesomeNet}")
+    all_model_best.append(best_dict_AwesomeNet)
+
     # 调用函数绘制并保存ROC曲线
     plot_all_models_roc(all_model_best, save_path='./roc_comparison.png')
     end_time = time.time()
@@ -1216,14 +1773,6 @@ if __name__ == '__main__':
     times_result = f'Total time: {hours}h {minutes}m {seconds}s'
     print(times_result)
     """
-    已知有一个all_model_best为list,里面存放着各种模型的k折交叉验证中最好的指标，
-    每个元素的结构为所示        best_dict = {
-        "name": "ITCFN",
-        "auc": -1,
-        "fpr": 0.35,
-        "tpr": 0.5,
-        "fold": 0
-    }
-    请你根据all_model_best里的内容，画出所有模型的ROC曲线，放在一张图中，并且保存为图片
+    
     """
 
