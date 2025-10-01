@@ -519,6 +519,173 @@ class MriPetDatasetForDiamond(Dataset):
         return batch
 
 
+def get_AIBL_clinical(sub_id, clin_df):
+    '''Gets clinical features vector by searching dataframe for image id'''
+    # 用-1初始化数组，表示缺失值
+    clinical = np.full(9, -1.0)
+
+    # if sub_id in clin_df["PTID"].values:
+    if clin_df["PTID"].isin([sub_id]).any():
+        row = clin_df.loc[clin_df["PTID"] == sub_id].iloc[0]
+
+        # GENDER (1表示Male, 2表示Female，缺失默认设置为 -1)
+        if pd.isnull(row["PTGENDER"]):
+            clinical[0] = -1
+        else:
+            clinical[0] = 1 if row["PTGENDER"] == 1 else (2 if row["PTGENDER"] == 2 else 0)
+
+        # AGE (用-1标记缺失值)
+        clinical[1] = row["AGE"] if not pd.isnull(row["AGE"]) else 0
+
+        # Education (用-1标记缺失值)
+        clinical[2] = row["MMSCORE"] if not pd.isnull(row["MMSCORE"]) else 0
+
+        # FDG_bl (用-1标记缺失值)
+        clinical[3] = row["FDG_bl"] if not pd.isnull(row["FDG_bl"]) else 0
+
+        # TAU_bl (用-1标记缺失值)
+        clinical[4] = row["TAU_bl"] if not pd.isnull(row["TAU_bl"]) else 0
+
+        # PTAU_bl (用-1标记缺失值)
+        clinical[5] = row["CDGLOBAL"] if not pd.isnull(row["CDGLOBAL"]) else 0
+
+        # APOE4 (保留原有处理方式，缺失则处理为 -1)
+        apoe4_allele = row["APOE4"]
+        if pd.isnull(apoe4_allele):
+            clinical[6], clinical[7], clinical[8] = 0, 0, 0  # 标记缺失值
+        elif apoe4_allele == 0:
+            clinical[6], clinical[7], clinical[8] = 1, 0, 0
+        elif apoe4_allele == 1:
+            clinical[6], clinical[7], clinical[8] = 0, 1, 0
+        elif apoe4_allele == 2:
+            clinical[6], clinical[7], clinical[8] = 0, 0, 1
+
+    return clinical
+
+
+class AIBLDatasetForDiamond(Dataset):
+    def __init__(self, mri_dir, pet_dir, cli_dir, csv_file, is_training: bool, resize_shape=(96, 128, 96), valid_group=("pMCI", "sMCI")):
+        self.mri_dir = Path(mri_dir)
+        self.pet_dir = Path(pet_dir) if pet_dir else ''
+        self.cli_dir = pd.read_csv(cli_dir)
+        self.labels_df = pd.read_csv(csv_file)  # 第一列是文件名，第二列是标签
+        self.groups = {'CN': 0, 'MCI': 1, 'AD': 1, 'pMCI': 1, 'sMCI': 0}
+        self.valid_group = valid_group
+        self.convert_label = lambda x: [1, 0] if x == 0 else [0, 1]
+        # self.transform = transforms.Compose([
+        #     Resize(resize_shape),
+        #     NoNan(),
+        #     Numpy2Torch(),
+        # ])
+        self.transforms_new = get_image_transform(is_training)
+
+        # 过滤只保留 valid_group 中的有效数据
+        self.filtered_indices = self.labels_df[self.labels_df.iloc[:, 1].isin(self.valid_group)].index.tolist()
+
+    def __len__(self):
+        return len(self.filtered_indices)
+
+    def __getitem__(self, idx):
+        filtered_idx = self.filtered_indices[idx]
+        img_name = str(self.labels_df.iloc[filtered_idx, 0])
+        label_str = self.labels_df.iloc[filtered_idx, 1]
+
+        # MRI 加载
+        mri_img_path = self.mri_dir / (img_name + '.nii')
+        # print(f"mri_img_path: {mri_img_path}")
+        mri_img_numpy = nib.load(str(mri_img_path)).get_fdata()
+        mri_img_torch = self.transforms_new(mri_img_numpy)
+
+        # 获取临床特征（第2到第6列）
+        # clinical_row = self.cli_df[self.cli_df.iloc[:, 0].astype(str) == img_name]  # 注意这里使用 astype(str)
+        # if clinical_row.empty:
+        #     raise ValueError(f"No clinical data found for image: {img_name}")
+        # clinical_data = clinical_row.iloc[0, 1:6].values
+        # clinical_tensor = torch.from_numpy(clinical_data.astype(np.float32))
+        clinical_features = get_AIBL_clinical(img_name, self.cli_dir)
+        clin_tab_torch = torch.from_numpy(clinical_features).float()
+
+        label = self.groups.get(label_str, -1)
+        label_2d = self.convert_label(label)
+
+        # if self.pet_dir == '':
+        #     return mri_img_torch.float(), label, clinical_tensor
+
+        # PET 加载
+        pet_img_path = self.pet_dir / (img_name + '.nii')
+        pet_img_numpy = nib.load(str(pet_img_path)).get_fdata()
+        pet_img_torch = self.transforms_new(pet_img_numpy)
+
+        return {
+            "image_name": img_name,
+            "mri": mri_img_torch.float(),
+            "pet": pet_img_torch.float(),
+            "clinical": clin_tab_torch,
+            "label": label,
+            "label_2d": torch.Tensor(label_2d)
+        }
+
+class AIBLDataset(Dataset):
+    def __init__(self, mri_dir, pet_dir, cli_dir, csv_file, resize_shape=(96, 128, 96), valid_group=("pMCI", "sMCI")):
+        self.mri_dir = Path(mri_dir)
+        self.pet_dir = Path(pet_dir) if pet_dir else ''
+        self.cli_dir = pd.read_csv(cli_dir)  # 临床数据
+        self.labels_df = pd.read_csv(csv_file)  # 第一列是文件名，第二列是标签
+        self.groups = {'CN': 0, 'MCI': 1, 'AD': 1, 'pMCI': 1, 'sMCI': 0}
+        self.valid_group = valid_group
+        self.convert_label = lambda x: [1, 0] if x == 0 else [0, 1]
+        self.transform = transforms.Compose([
+            Resize(resize_shape),
+            NoNan(),
+            Numpy2Torch(),
+        ])
+
+        # 过滤只保留 valid_group 中的有效数据
+        self.filtered_indices = self.labels_df[self.labels_df.iloc[:, 1].isin(self.valid_group)].index.tolist()
+
+    def __len__(self):
+        return len(self.filtered_indices)
+
+    def __getitem__(self, idx):
+        filtered_idx = self.filtered_indices[idx]
+        img_name = str(self.labels_df.iloc[filtered_idx, 0])
+        label_str = self.labels_df.iloc[filtered_idx, 1]
+
+        # MRI 加载
+        mri_img_path = self.mri_dir / (img_name + '.nii')
+        # print(f"mri_img_path: {mri_img_path}")
+        mri_img_numpy = nib.load(str(mri_img_path)).get_fdata()
+        mri_img_torch = self.transform(mri_img_numpy)
+
+        # 获取临床特征（第2到第6列）
+        # clinical_row = self.cli_df[self.cli_df.iloc[:, 0].astype(str) == img_name]  # 注意这里使用 astype(str)
+        # if clinical_row.empty:
+        #     raise ValueError(f"No clinical data found for image: {img_name}")
+        # clinical_data = clinical_row.iloc[0, 1:6].values
+        # clinical_tensor = torch.from_numpy(clinical_data.astype(np.float32))
+        clinical_features = get_AIBL_clinical(img_name, self.cli_dir)
+        clin_tab_torch = torch.from_numpy(clinical_features).float()
+
+        label = self.groups.get(label_str, -1)
+        label_2d = self.convert_label(label)
+
+        # if self.pet_dir == '':
+        #     return mri_img_torch.float(), label, clinical_tensor
+
+        # PET 加载
+        pet_img_path = self.pet_dir / (img_name + '.nii')
+        pet_img_numpy = nib.load(str(pet_img_path)).get_fdata()
+        pet_img_torch = self.transform(pet_img_numpy)
+
+        return {
+            "image_name": img_name,
+            "mri": mri_img_torch.float(),
+            "pet": pet_img_torch.float(),
+            "clinical": clin_tab_torch,
+            "label": label,
+            "label_2d": torch.Tensor(label_2d)
+        }
+
 if __name__ == '__main__':
     mri_dir = r'/data3/wangchangmiao/shenxy/ADNI/ADNI1/MRI'  # 替换为 MRI 文件的路径
     pet_dir = r'/data3/wangchangmiao/shenxy/ADNI/ADNI1/PET'  # 替换为 PET 文件的路径

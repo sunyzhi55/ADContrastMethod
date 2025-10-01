@@ -605,8 +605,8 @@ def find_best_model_for_VAPL(mri_dir, pet_dir, cli_dir, csv_file, batch_size, mo
             print(f"Warning: Could not determine fold number for {filename}, skipping")
             continue
         print(f"Evaluating fold {fold_num} model: {model_path.name}")
-        model = thenet(input_size=[37 * 45 * 37, 18 * 22 * 18, 9 * 11 * 9, 4 * 5 * 4],dims=[32, 64, 128, 256],
-                           depths=[3, 3, 3, 3], num_heads=8, in_channels=1,
+        model = thenet(input_size=[32 * 42 * 32, 16 * 21 * 16, 8 * 10 * 8, 4 * 5 * 4],
+                       dims=[32, 64, 128, 256], depths=[3, 3, 3, 3], num_heads=8, in_channels=1,
                            num_classes=num_classes).to(device)
         model.load_state_dict(torch.load(str(model_path), map_location=device))
         result_dict = evaluate_model(model, data_loader, device)
@@ -1465,7 +1465,7 @@ def find_best_model_for_AwesomeNet(mri_dir, pet_dir, cli_dir, csv_file, batch_si
     # 存储所有折的结果
     all_results = []
     best_dict = {
-        "name": "AweSomeNet",
+        "name": "TriLightNet",
         "auc": -1,
         "fpr": None,
         "tpr": None,
@@ -1561,24 +1561,24 @@ def plot_all_models_roc(all_model_best, save_path='./all_models_roc_curves.png')
     plt.close()
 
 if __name__ == '__main__':
-    torch.manual_seed(42)
-    device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
+    torch.manual_seed(50)
+    device = torch.device("cuda:2" if torch.cuda.is_available() else "cpu")
 
     # 加载数据 - 使用Path对象
     mri_dir = Path('/data3/wangchangmiao/shenxy/ADNI/ADNI1_2/MRI')
     pet_dir = Path('/data3/wangchangmiao/shenxy/ADNI/ADNI1_2/PET')
     cli_dir = Path('./csv/ADNI_Clinical.csv')
-    csv_file = Path('./csv/ADNI1_2_ad_mci_cn_validation.csv')
+    csv_file = Path('./csv/ADNI1_2_pmci_smci_validation.csv')
     batch_size = 8
     experiment_settings = {
         'shape': (96, 128, 96),
-        'task': ('MCI', 'CN')
+        'task': ('sMCI', 'pMCI')
     }
     all_model_best = []
     start_time = time.time()
 
     # Resnet
-    resnet_model_dir = Path(r'/data3/wangchangmiao/shenxy/Code/AD/mci_cn_86/mci_cn/resnet')
+    resnet_model_dir = Path(r'/data3/wangchangmiao/shenxy/Code/AD/pmci_smci/pmci_smci/resnet')
     resnet_save_image_path = Path('./roc_curves_resnet.png')
     # 获取最佳模型和所有结果
     best_dict_resnet, all_results_resnet = find_best_model_for_resnet(
@@ -1590,21 +1590,21 @@ if __name__ == '__main__':
     print(f"model:{best_dict_resnet['name']} Fold result")
     print(f"{all_results_resnet}")
     all_model_best.append(best_dict_resnet)
-    # efficientNet
-    efficientNet_model_dir = Path(r'/data3/wangchangmiao/shenxy/Code/AD/mci_cn_86/mci_cn/efficientNet')
-    efficientNet_save_image_path = Path('./roc_curves_efficientNet.png')
-    # 获取最佳模型和所有结果
-    best_dict_efficientNet, all_results_efficientNet = find_best_model_for_efficientNet(
-        mri_dir, pet_dir, cli_dir, csv_file, batch_size, efficientNet_model_dir, device,
-        save_image_path = efficientNet_save_image_path,
-        experiment_settings=experiment_settings,
-        num_classes=2
-    )
-    print(f"model:{best_dict_efficientNet['name']} Fold result")
-    print(f"{all_results_efficientNet}")
-    all_model_best.append(best_dict_efficientNet)
+    # # efficientNet
+    # efficientNet_model_dir = Path(r'/data3/wangchangmiao/shenxy/Code/AD/pmci_smci/pmci_smci/efficientNet')
+    # efficientNet_save_image_path = Path('./roc_curves_efficientNet.png')
+    # # 获取最佳模型和所有结果
+    # best_dict_efficientNet, all_results_efficientNet = find_best_model_for_efficientNet(
+    #     mri_dir, pet_dir, cli_dir, csv_file, batch_size, efficientNet_model_dir, device,
+    #     save_image_path = efficientNet_save_image_path,
+    #     experiment_settings=experiment_settings,
+    #     num_classes=2
+    # )
+    # print(f"model:{best_dict_efficientNet['name']} Fold result")
+    # print(f"{all_results_efficientNet}")
+    # all_model_best.append(best_dict_efficientNet)
     # vit
-    vit_model_dir = Path(r'/data3/wangchangmiao/shenxy/Code/AD/mci_cn_86/mci_cn/vit')
+    vit_model_dir = Path(r'/data3/wangchangmiao/shenxy/Code/AD/pmci_smci/pmci_smci/vit')
     vit_save_image_path = Path('./roc_curves_vit.png')
     # 获取最佳模型和所有结果
     best_dict_vit, all_results_vit = find_best_model_for_vit(
@@ -1616,21 +1616,21 @@ if __name__ == '__main__':
     print(f"model:{best_dict_vit['name']} Fold result")
     print(f"{all_results_vit}")
     all_model_best.append(best_dict_vit)
-    # poolformer
-    poolformer_model_dir = Path(r'/data3/wangchangmiao/shenxy/Code/AD/mci_cn_86/mci_cn/poolformer')
-    poolformer_save_image_path = Path('./roc_curves_poolformer.png')
-    # 获取最佳模型和所有结果
-    best_dict_poolformer, all_results_poolformer = find_best_model_for_poolformer(
-        mri_dir, pet_dir, cli_dir, csv_file, batch_size, poolformer_model_dir, device,
-        save_image_path = poolformer_save_image_path,
-        experiment_settings=experiment_settings,
-        num_classes=2
-    )
-    print(f"model:{best_dict_poolformer['name']} Fold result")
-    print(f"{all_results_poolformer}")
-    all_model_best.append(best_dict_poolformer)
+    # # poolformer
+    # poolformer_model_dir = Path(r'/data3/wangchangmiao/shenxy/Code/AD/pmci_smci/pmci_smci/poolformer')
+    # poolformer_save_image_path = Path('./roc_curves_poolformer.png')
+    # # 获取最佳模型和所有结果
+    # best_dict_poolformer, all_results_poolformer = find_best_model_for_poolformer(
+    #     mri_dir, pet_dir, cli_dir, csv_file, batch_size, poolformer_model_dir, device,
+    #     save_image_path = poolformer_save_image_path,
+    #     experiment_settings=experiment_settings,
+    #     num_classes=2
+    # )
+    # print(f"model:{best_dict_poolformer['name']} Fold result")
+    # print(f"{all_results_poolformer}")
+    # all_model_best.append(best_dict_poolformer)
     # nnMamba
-    nnMamba_model_dir = Path(r'/data3/wangchangmiao/shenxy/Code/AD/mci_cn_86/mci_cn/nnMamba')
+    nnMamba_model_dir = Path(r'/data3/wangchangmiao/shenxy/Code/AD/pmci_smci/pmci_smci/nnMamba')
     nnMamba_save_image_path = Path('./roc_curves_nnMamba.png')
     # 获取最佳模型和所有结果
     best_dict_nnMamba, all_results_nnMamba = find_best_model_for_nnMamba(
@@ -1644,10 +1644,10 @@ if __name__ == '__main__':
     all_model_best.append(best_dict_nnMamba)
     # VAPL
     experiment_settings_for_VAPL = {
-        'shape': (113, 137, 113),
-        'task': ('MCI', 'CN')
+        'shape': (96, 128, 96),
+        'task': ('sMCI', 'pMCI')
     }
-    VAPL_model_dir = Path(r'/data3/wangchangmiao/shenxy/Code/AD/mci_cn_86/mci_cn/VAPL')
+    VAPL_model_dir = Path(r'/data3/wangchangmiao/shenxy/Code/AD/pmci_smci/pmci_smci/VAPL')
     VAPL_save_image_path = Path('./roc_curves_VAPL.png')
     # 获取最佳模型和所有结果
     best_dict_VAPL, all_results_VAPL = find_best_model_for_VAPL(
@@ -1660,7 +1660,7 @@ if __name__ == '__main__':
     print(f"{all_results_VAPL}")
     all_model_best.append(best_dict_VAPL)
     # hyperfusionNet
-    hyperfusionNet_model_dir = Path(r'/data3/wangchangmiao/shenxy/Code/AD/mci_cn_86/mci_cn/hyperfusionNet')
+    hyperfusionNet_model_dir = Path(r'/data3/wangchangmiao/shenxy/Code/AD/pmci_smci/pmci_smci/hyperfusionNet')
     hyperfusionNet_save_image_path = Path('./roc_curves_hyperfusionNet.png')
     # 获取最佳模型和所有结果
     best_dict_hyperfusionNet, all_results_hyperfusionNet = find_best_model_for_hyperfusionNet(
@@ -1673,7 +1673,7 @@ if __name__ == '__main__':
     print(f"{all_results_hyperfusionNet}")
     all_model_best.append(best_dict_hyperfusionNet)
     # Diamond
-    diamond_model_dir = Path(r'/data3/wangchangmiao/shenxy/Code/AD/DiaMond/mci_cn')
+    diamond_model_dir = Path(r'/data3/wangchangmiao/shenxy/Code/AD/DiaMond/pmci_smci')
     diamond_save_image_path = Path('./roc_curves_diamond.png')
     best_dict_diamond, all_results_diamond = find_best_model_for_diamond(
         mri_dir, pet_dir, cli_dir, csv_file, batch_size, diamond_model_dir, device,
@@ -1685,7 +1685,7 @@ if __name__ == '__main__':
     print(f"{all_results_diamond}")
     all_model_best.append(best_dict_diamond)
     # MDL
-    MDL_model_dir = Path(r'/data3/wangchangmiao/shenxy/Code/AD/mci_cn_86/mci_cn/MDL')
+    MDL_model_dir = Path(r'/data3/wangchangmiao/shenxy/Code/AD/pmci_smci/pmci_smci/MDL')
     IMF_save_image_path = Path('./roc_curves_MDL.png')
     # 获取最佳模型和所有结果
     best_dict_MDL, all_results_MDL = find_best_model_for_MDL(
@@ -1698,7 +1698,7 @@ if __name__ == '__main__':
     print(f"{all_results_MDL}")
     all_model_best.append(best_dict_MDL)
     # IMF
-    IMF_model_dir = Path(r'/data3/wangchangmiao/shenxy/Code/AD/mci_cn_86/mci_cn/IMF')
+    IMF_model_dir = Path(r'/data3/wangchangmiao/shenxy/Code/AD/pmci_smci/pmci_smci/IMF')
     IMF_save_image_path = Path('./roc_curves_IMF.png')
     # 获取最佳模型和所有结果
     best_dict_IMF, all_results_IMF = find_best_model_for_IMF(
@@ -1711,7 +1711,7 @@ if __name__ == '__main__':
     print(f"{all_results_IMF}")
     all_model_best.append(best_dict_IMF)
     # HFBSurv
-    HFBSurv_model_dir = Path(r'/data3/wangchangmiao/shenxy/Code/AD/mci_cn_86/mci_cn/HFBSurv')
+    HFBSurv_model_dir = Path(r'/data3/wangchangmiao/shenxy/Code/AD/pmci_smci/pmci_smci/HFBSurv')
     HFBSurv_save_image_path = Path('./roc_curves_HFBSurv.png')
     # 获取最佳模型和所有结果
     best_dict_HFBSurv, all_results_HFBSurv = find_best_model_for_HFBSurv(
@@ -1724,7 +1724,7 @@ if __name__ == '__main__':
     print(f"{all_results_HFBSurv}")
     all_model_best.append(best_dict_HFBSurv)
     # ITCFN
-    ITCFN_model_dir = Path(r'/data3/wangchangmiao/shenxy/Code/AD/mci_cn_86/mci_cn/ITCFN')
+    ITCFN_model_dir = Path(r'/data3/wangchangmiao/shenxy/Code/AD/pmci_smci/pmci_smci/ITCFN')
     ITCFN_save_image_path = Path('./roc_curves_ITCFN.png')
     # 获取最佳模型和所有结果
     best_dict_ITCFN, all_results_ITCFN = find_best_model_for_ITCFN(
@@ -1737,7 +1737,7 @@ if __name__ == '__main__':
     print(f"{all_results_ITCFN}")
     all_model_best.append(best_dict_ITCFN)
     # MultimodalADNet
-    MultimodalADNet_model_dir = Path(r'/data3/wangchangmiao/shenxy/Code/AD/mci_cn_86/mci_cn/MultimodalADNet')
+    MultimodalADNet_model_dir = Path(r'/data3/wangchangmiao/shenxy/Code/AD/pmci_smci/pmci_smci/MultimodalADNet')
     MultimodalADNet_save_image_path = Path('./roc_curves_MultimodalADNet.png')
     best_dict_MultimodalADNet, all_results_MultimodalADNet = find_best_model_for_MultimodalADNet(
         mri_dir, pet_dir, cli_dir, csv_file, batch_size, MultimodalADNet_model_dir, device,
@@ -1749,7 +1749,7 @@ if __name__ == '__main__':
     print(f"{all_results_MultimodalADNet}")
     all_model_best.append(best_dict_MultimodalADNet)
     # AweSomeNet
-    AwesomeNet_model_dir = Path(r'/data3/wangchangmiao/shenxy/Code/AD/AweSome/AwesomeNetFinal_lr00001/mci_cn')
+    AwesomeNet_model_dir = Path(r'/data3/wangchangmiao/shenxy/Code/AD/AweSome/AwesomeNetFinal_lr00001/pmci_smci')
     AwesomeNet_save_image_path = Path('./roc_curves_AwesomeNet.png')
     best_dict_AwesomeNet, all_results_AwesomeNet = find_best_model_for_AwesomeNet(
         mri_dir, pet_dir, cli_dir, csv_file, batch_size, AwesomeNet_model_dir, device,

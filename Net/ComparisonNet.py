@@ -104,25 +104,58 @@ class HFBSurv(nn.Module):
         # self.output_shift = Parameter(torch.FloatTensor([-3]), requires_grad=False)
 
     def mfb(self, x1, x2, output_dim):
+        # print the shape
+        # print("x1", x1.shape)
+        # print("x2", x2.shape)
+
         self.output_dim = output_dim
+        # print("self.output_dim ", self.output_dim)
         fusion = torch.mul(x1, x2)
+        # print("fusion1", fusion.shape)
         fusion = self.factor_drop(fusion)
+        # print("fusion2", fusion.shape)
         fusion = fusion.view(-1, 1, self.output_dim, self.rank)
-        fusion = torch.squeeze(torch.sum(fusion, 3))
+        # 假设 fusion 初始形状为 [1, 1, 20, 20]
+        # print("fusion3", fusion.shape)  # 应输出: torch.Size([1, 1, 20, 20])
+
+        # 使用 sum 操作，但这次我们明确指定维度和 keepdim 参数以保留所需的维度
+        fusion = torch.sum(fusion, dim=3, keepdim=True)  # 形状变为 [1, 1, 20, 1]
+
+        # 如果需要去除多余的维度，可以只选择性地移除特定维度，而不是使用 squeeze
+        fusion = fusion.squeeze(dim=3)  # 形状变为 [1, 1, 20]
+
+        # 如果还需要进一步调整到 [1, 20] 的形状，可以继续操作，例如：
+        fusion = fusion.squeeze(dim=1)  # 形状变为 [1, 20]
+
+        # print("fusion4", fusion.shape)  # 应输出: torch.Size([1, 20])
         fusion = torch.sqrt(F.relu(fusion)) - torch.sqrt(F.relu(-fusion))
+        # print("fusion5", fusion.shape)
         fusion = F.normalize(fusion)
+        # print("fusion6", fusion.shape)
         return fusion
 
     def forward(self, mri, pet, cli):
         # radio_feature = self.Radio_encoder(radio)[0]
+        # print("mri", mri.shape)
+        # print("pet", pet.shape)
+        # print("cli", cli.shape)
         mri_feature = self.Resnet(mri)
         pet_feature = self.Resnet(pet)
         cli_feature = self.Table(cli)
+        # print the shape
+        # print("mri_feature", mri_feature.shape)
+        # print("pet_feature", pet_feature.shape)
+        # print("cli_feature", cli_feature.shape)
+
         # cli_feature = self.bert(input_ids=input_ids, attention_mask=attention_mask,
         #                         token_type_ids=token_type_ids).pooler_output
 
         mri_feature = self.fc_vis(mri_feature)
         pet_feature = self.fc_vis(pet_feature)
+        # print the shape
+        # print("mri_feature", mri_feature.shape)
+        # print("pet_feature", pet_feature.shape)
+
         # cli_feature = self.fc_text(cli_feature)
 
         x1 = mri_feature
@@ -132,10 +165,17 @@ class HFBSurv(nn.Module):
         gene_feature = self.encoder_gene(x1.squeeze(1))
         path_feature = self.encoder_path(x2.squeeze(1))
         cona_feature = self.encoder_cona(x3.squeeze(1))
+        # print("gene_feature", gene_feature.shape)
+        # print("path_feature", path_feature.shape)
+        # print("cona_feature", cona_feature.shape)
 
         gene_h = self.Linear_gene(gene_feature)
         path_h = self.Linear_path(path_feature)
         cona_h = self.Linear_cona(cona_feature)
+        # print the shape
+        # print("gene_h", gene_h.shape)
+        # print("path_h", path_h.shape)
+        # print("cona_h", cona_h.shape)
 
         ######################### modelity-specific###############################
         # intra_interaction#
@@ -166,13 +206,27 @@ class HFBSurv(nn.Module):
         p = F.softmax(path_x_a, 1)
         c = F.softmax(cona_x_a, 1)
 
-        sg = sg.squeeze()
-        sp = sp.squeeze()
-        sc = sc.squeeze()
+        # print("g", g.shape)
+        # print("p", p.shape)
+        # print("c", c.shape)
+        # print the shape
+        # print("sg", sg.shape)
+        # print("sp", sp.shape)
+        # print("sc", sc.shape)
+        sg = sg.squeeze(dim=1)
+        sp = sp.squeeze(dim=1)
+        sc = sc.squeeze(dim=1)
+        # print("sg", sg.shape)
+        # print("sp", sp.shape)
+        # print("sc", sc.shape)
 
         sgp = (1 / (torch.matmul(g.unsqueeze(1), p.unsqueeze(2)).squeeze() + 0.5) * (sg + sp))
         sgc = (1 / (torch.matmul(g.unsqueeze(1), c.unsqueeze(2)).squeeze() + 0.5) * (sg + sc))
         spc = (1 / (torch.matmul(p.unsqueeze(1), c.unsqueeze(2)).squeeze() + 0.5) * (sp + sc))
+        # print("sgp", sgp.shape)
+        # print("sgc", sgc.shape)
+        # print("spc", spc.shape)
+
         normalize = torch.cat((sgp.unsqueeze(1), sgc.unsqueeze(1), spc.unsqueeze(1)), 1)
         normalize = F.softmax(normalize, 1)
         sgp_a = normalize[:, 0].unsqueeze(1).expand(gene_feature.size(0), self.output_inter)

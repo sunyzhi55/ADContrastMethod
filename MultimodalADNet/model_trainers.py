@@ -18,7 +18,7 @@ from einops.layers.torch import Rearrange
 from pycm import ConfusionMatrix
 import numpy as np
 import csv
-import shap
+import shap_demo
 
 
 class model_CLS_Tabular(nn.Module):

@@ -9,6 +9,7 @@ import numpy as np
 import torchvision.transforms as transforms
 from skimage import transform as skt
 import nibabel as nib
+from MultimodalADNet.multimodalNet import MultimodalADNet
 from Dataset import MriPetCliDataset
 import seaborn as sns
 import time
@@ -22,6 +23,7 @@ from DiamondNet.regbn import RegBN
 import matplotlib.pyplot as plt
 
 from sklearn.metrics import roc_curve, auc
+
 class CompleteModel(nn.Module):
     def __init__(self, diamond, regbn_kwargs, num_classes=2, device='cuda:2', checkpoint_path=None):
         super(CompleteModel, self).__init__()
@@ -406,7 +408,7 @@ def visualize_cli_attributions_heatmap(cli_input, cli_attr, output_path):
 
     cli_output_path = output_dir / f"{base_name}_cli.png"
     plt.savefig(cli_output_path, bbox_inches="tight", dpi=300)
-    plt.savefig(output_path)
+
     plt.close()
 
 
@@ -886,7 +888,7 @@ def HFBsurv_IG(mri_dir, pet_dir, cli_dir, csv_file, device_ids, pretrained_path,
         cli_tab = batch.get("clinical").to(device)
         # mri_pet_images = torch.concat([mri_images, pet_images], dim=1)
         label = batch.get("label").to(main_device)
-        image_name = batch.get("img_name")
+        image_name = batch.get("image_name")
         # 定义基线
         mri_baseline = torch.zeros_like(mri_images).to(main_device)
         pet_baseline = torch.zeros_like(pet_images).to(main_device)
@@ -974,6 +976,101 @@ def ITCFN_IG(mri_dir, pet_dir, cli_dir, csv_file, device_ids, pretrained_path, e
                                experiment_settings['task'])
     dataloader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=4)
     train_bar = tqdm(dataloader, desc=f"ITCFN IG ", unit="batch")
+    Path(output_dir).mkdir(parents=True, exist_ok=True)
+    for ii, batch in enumerate(train_bar):
+        mri_images = batch.get("mri").to(main_device)
+        pet_images = batch.get("pet").to(main_device)
+        cli_tab = batch.get("clinical").to(main_device)
+        # mri_pet_images = torch.concat([mri_images, pet_images], dim=1)
+        label = batch.get("label").to(main_device)
+        image_name = batch.get("image_name")
+        # 定义基线
+        mri_baseline = torch.zeros_like(mri_images).to(main_device)
+        pet_baseline = torch.zeros_like(pet_images).to(main_device)
+        cli_baseline = torch.zeros_like(cli_tab).to(main_device)
+        target_class = label.item()
+        # 计算 MRI 归因
+        # 初始化 Integrated Gradients
+        ig_mri = IntegratedGradients(forward_func_mri)
+        mri_attributions, mri_delta = ig_mri.attribute(
+            inputs=mri_images,
+            baselines=mri_baseline,
+            additional_forward_args=(pet_images, cli_tab),
+            target=target_class,
+            return_convergence_delta=True
+        )
+        # 计算 PET 归因
+        ig_pet = IntegratedGradients(forward_func_pet)
+        pet_attributions, pet_delta = ig_pet.attribute(
+            inputs=pet_images,
+            baselines=pet_baseline,
+            additional_forward_args=(mri_images, cli_tab),
+            target=target_class,
+            return_convergence_delta=True
+        )
+        # 计算 Clinical 数据归因
+        ig_cli = IntegratedGradients(forward_func_cli)
+        cli_attributions, cli_delta = ig_cli.attribute(
+            inputs=cli_tab,
+            baselines=cli_baseline,
+            additional_forward_args=(mri_images, pet_images),
+            target=target_class,
+            return_convergence_delta=True
+        )
+        # 打印结果
+        print("MRI Attributions:", mri_attributions.shape)
+        print("PET Attributions:", pet_attributions.shape)
+        print("CLI Attributions:", cli_attributions.shape)
+        # 示例调用
+        mri_input_np = mri_images.detach().cpu().numpy()
+        mri_attributions_np = mri_attributions.detach().cpu().numpy()
+        mri_output_path = Path(output_dir) / f"mri_{image_name}_label_{target_class}.jpg"
+        # visualize_ig_heatmap(mri_input_np, mri_attributions_np, slice_index=(48, 64, 48), channel=0,
+        #                      output_path=mri_output_path)
+        visualize_ig_heatmap_seaborn_save_all_son(mri_input_np, mri_attributions_np, slice_index=(48, 64, 48),
+                                                  channel=0,
+                                                  output_path=mri_output_path)
+        pet_input_np = pet_images.detach().cpu().numpy()
+        pet_attributions_np = pet_attributions.detach().cpu().numpy()
+        pet_output_path = Path(output_dir) / f"pet_{image_name}_label_{target_class}.jpg"
+        # visualize_ig_heatmap(pet_input_np, pet_attributions_np, slice_index=(48, 64, 48), channel=0,
+        #                      output_path=pet_output_path)
+        visualize_ig_heatmap_seaborn_save_all_son(pet_input_np, pet_attributions_np, slice_index=(48, 64, 48),
+                                                  channel=0,
+                                                  output_path=pet_output_path)
+        cli_tab_np = cli_tab[0].detach().cpu().numpy()
+        cli_attributions_np = cli_attributions[0].detach().cpu().numpy()
+        cli_output_path = Path(output_dir) / f"cli_{image_name}_label_{target_class}.jpg"
+        visualize_cli_attributions_heatmap(cli_tab_np, cli_attributions_np, output_path=cli_output_path)
+        del mri_attributions, mri_delta
+        del pet_attributions, pet_delta
+        del cli_attributions, cli_delta
+        torch.cuda.empty_cache()
+
+
+def MultimodalADNet_IG(mri_dir, pet_dir, cli_dir, csv_file, device_ids, pretrained_path, experiment_settings, output_dir):
+    def forward_func_mri(mri_input, pet_input, cli_input):
+        return model(mri_input, pet_input, cli_input)
+
+    def forward_func_pet(pet_input, mri_input, cli_input):
+        return model(mri_input, pet_input, cli_input)
+
+    def forward_func_cli(cli_input, mri_input, pet_input):
+        return model(mri_input, pet_input, cli_input)
+
+    main_device = f'cuda:{device_ids[0]}'
+    model = MultimodalADNet(num_classes=2).to(main_device)
+    model.load_state_dict(torch.load(pretrained_path, map_location=main_device))
+
+    # 使用DataParallel包装模型
+    if len(device_ids) > 1:
+        model = torch.nn.DataParallel(model, device_ids=device_ids)
+
+    model.eval()
+    dataset = MriPetCliDataset(mri_dir, pet_dir, cli_dir, csv_file, experiment_settings['shape'],
+                               experiment_settings['task'])
+    dataloader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=4)
+    train_bar = tqdm(dataloader, desc=f"MultimodalADNet IG ", unit="batch")
     Path(output_dir).mkdir(parents=True, exist_ok=True)
     for ii, batch in enumerate(train_bar):
         mri_images = batch.get("mri").to(main_device)
@@ -1142,7 +1239,7 @@ def Diamond_IG(mri_dir, pet_dir, cli_dir, csv_file, device_ids, pretrained_path,
 if __name__ == "__main__":
     # 初始化模型
     device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
-    device_ids = [1, 3, 5]
+    device_ids = [1, 2, 3, 4, 5]
     mri_dir = '/data3/wangchangmiao/shenxy/ADNI/ADNI1_2/MRI'
     pet_dir = '/data3/wangchangmiao/shenxy/ADNI/ADNI1_2/PET'
     cli_dir = './csv/ADNI_Clinical.csv'
@@ -1165,21 +1262,25 @@ if __name__ == "__main__":
     # Diamond_output_dir = "./Diamond_IG_output"
     # Diamond_IG(mri_dir, pet_dir, cli_dir, csv_file, device_ids, Diamond_pretrained_path, experiment_settings, Diamond_output_dir)
     # MDL
-    MDL_pretrained_path = r"/data3/wangchangmiao/shenxy/Code/AD/pmci_smci/pmci_smci/MDL/MDL_Net_best_model_fold2.pth"
-    MDL_output_dir = "./MDL_IG_output"
-    MDL_IG(mri_dir, pet_dir, cli_dir, csv_file, device_ids, MDL_pretrained_path, experiment_settings, MDL_output_dir)
+    # MDL_pretrained_path = r"/data3/wangchangmiao/shenxy/Code/AD/pmci_smci/pmci_smci/MDL/MDL_Net_best_model_fold2.pth"
+    # MDL_output_dir = "./MDL_IG_output"
+    # MDL_IG(mri_dir, pet_dir, cli_dir, csv_file, device_ids, MDL_pretrained_path, experiment_settings, MDL_output_dir)
     # IMF
     # IMF_pretrained_path = r"/data3/wangchangmiao/shenxy/Code/AD/pmci_smci/pmci_smci/IMF/Interactive_Multimodal_Fusion_Model_best_model_fold2.pth"
     # IMF_output_dir = "./IMF_IG_output"
     # IMF_IG(mri_dir, pet_dir, cli_dir, csv_file, device_ids, IMF_pretrained_path, experiment_settings, IMF_output_dir)
     # HFBsurv
-    # HFBsurv_pretrained_path = r"/data3/wangchangmiao/shenxy/Code/AD/pmci_smci/pmci_smci/HFBSurv/HFBSurv_best_model_fold2.pth"
-    # HFBsurv_output_dir = "./HFBsurv_IG_output"
-    # HFBsurv_IG(mri_dir, pet_dir, cli_dir, csv_file, device_ids, HFBsurv_pretrained_path, experiment_settings, HFBsurv_output_dir)
+    HFBsurv_pretrained_path = r"/data3/wangchangmiao/shenxy/Code/AD/pmci_smci/pmci_smci/HFBSurv/HFBSurv_best_model_fold2.pth"
+    HFBsurv_output_dir = "./HFBsurv_IG_output"
+    HFBsurv_IG(mri_dir, pet_dir, cli_dir, csv_file, device_ids, HFBsurv_pretrained_path, experiment_settings, HFBsurv_output_dir)
     # ITCFN
-    ITCFN_pretrained_path = r"/data3/wangchangmiao/shenxy/Code/AD/pmci_smci/pmci_smci/ITCFN/Triple_model_CoAttention_Fusion_best_model_fold2.pth"
-    ITCFN_output_dir = "./ITCFN_IG_output"
-    ITCFN_IG(mri_dir, pet_dir, cli_dir, csv_file, device_ids, ITCFN_pretrained_path, experiment_settings, ITCFN_output_dir)
+    # ITCFN_pretrained_path = r"/data3/wangchangmiao/shenxy/Code/AD/pmci_smci/pmci_smci/ITCFN/Triple_model_CoAttention_Fusion_best_model_fold2.pth"
+    # ITCFN_output_dir = "./ITCFN_IG_output"
+    # ITCFN_IG(mri_dir, pet_dir, cli_dir, csv_file, device_ids, ITCFN_pretrained_path, experiment_settings, ITCFN_output_dir)
+    # MultimodalADNet
+    # MultimodalADNet_pretrained_path = r"/data3/wangchangmiao/shenxy/Code/AD/pmci_smci/pmci_smci/MultimodalADNet/MultimodalADNet_best_model_fold2.pth"
+    # MultimodalADNet_output_dir = "./MultimodalADNet_IG_output"
+    # MultimodalADNet_IG(mri_dir, pet_dir, cli_dir, csv_file, device_ids, MultimodalADNet_pretrained_path, experiment_settings, MultimodalADNet_output_dir)
     # AweSomeNet
     # AweSomeNet_pretrained_path = r"/data3/wangchangmiao/shenxy/Code/AD/AweSome/AwesomeNetFinal_lr00001/pmci_smci_2/AweSomeNet_best_model_fold2.pth"
     # AweSomeNet_output_dir = "./AwesomNet_IG_output"
